@@ -1,0 +1,5 @@
+/build/
+/cmake-build-debug/
+/.idea/
+/assets/*
+!/assets/autoexec.cfg

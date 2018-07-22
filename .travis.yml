@@ -1,0 +1,61 @@
+env:
+  global:
+   - secure: "U9UqoGbF/dyFKxfmZorAz/TxhA8XhrWKnMGg4JJucRWAi9Iangr/Djri+trtNoBElW2Fbyy9+z86xVyKMpqy2e6QK1+c5RwsFLSktOSn4uFI2xUoCS1fWl84wNX3pI/+yTmBka/xfa4HOLjr7rx5b3TI2zGAEgWODpI33vhG3urJLVAmPF0Cywdzer9lMHdAho0h4obWxhXp8qdaa9C/ax2Qrrk1Dma4qYqEBjtoO/nbauyS02vrZaexq+LLOIR6NRPdq78HWMAYwhrIgMkEeFFJRaNLkUOFTN+0e074AEt/dY3gPsWp4WRFdGv88/wTJzsl47236fkN+lzoWNRVChBWcpEnTuJubYzzAZg4fiPs3v2dD4sl0QtOkpeJy0cnMcpTwM9PCRWfprb4WsQAVswxQTxk8ND4yel6NPiSe865UCsf6565K2VUwl3eGol6HZMh5hO/r+vqHRsMp0D1HQuQszzER+D5RopG2sXngHzgegWLLzE7elHZcdcuhfZz84tQOHjhYBk7m8q6nb1F1jf2E+OBcRaIqfp3kC8anu3GZEia15lM5NVGWdDP2+a9x+rr4FHe6g+DqOuO/BNTkdJFCoRLUYbB7TxQyZgabUuOPNTwuDfZFIRzCsVR+6f8sUvt3eF31BgujQnpF8nVc1I8rGcduDQckhAzpPWorYo="
+
+before_install:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "klaussilveira/qengine"
+    notification_email: contact@klaussilveira.com
+    build_command_prepend: "mkdir build && cd build && cmake -DBUILD_DOCS=OFF .."
+    build_command: "make -j2"
+    branch_pattern: master
+
+language: c
+script:
+  - mkdir build
+  - cd build
+  - cmake -DBUILD_DOCS=OFF ..
+  - make
+
+matrix:
+  fast_finish: true
+  include:
+    - env: PLATFORM=Unix COMPILER=gcc-6
+      compiler: gcc
+      os: linux
+      addons:
+        apt:
+          packages: ['gcc-6', 'g++-6']
+          sources: &sources
+            - ubuntu-toolchain-r-test
+
+    - env: PLATFORM=Unix COMPILER=gcc-7
+      compiler: gcc
+      os: linux
+      addons:
+        apt:
+          packages: ['gcc-7', 'g++-7']
+          sources: &sources
+            - ubuntu-toolchain-r-test
+
+    - env: PLATFORM=Unix COMPILER=clang-3.6
+      compiler: clang
+      os: linux
+      addons:
+        apt:
+          packages: ['clang-3.6', 'clang++-3.6']
+          sources: &sources
+            - llvm-toolchain-trusty-3.6
+
+    - env: PLATFORM=Unix COMPILER=clang-5.0
+      compiler: clang
+      os: linux
+      addons:
+        apt:
+          packages: ['clang-5.0', 'clang++-5.0']
+          sources: &sources
+            - llvm-toolchain-trusty-5.0

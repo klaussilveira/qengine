@@ -1,0 +1,101 @@
+PCX2WAL - tool to create .wal textures for Quake2 (ver 2.2)
+by Iikka Keranen (c) 1997-1998
+iikka@ionstorm.com
+
+Thanks to Antti Tapaninen for Linux makefile and binaries.
+
+NO TECH SUPPORT PROVIDED
+
+Includes:
+- Pcx2wal texture converter
+- Tools for using custom palettes
+- Source code for all of the above
+
+Platforms:
+DOS
+Win32  (pcx2wal.exe only - DOS versions for others work fine)
+Linux
+
+Supports all features of .wal files, including default flags, contents and
+values for QE4. The source code is included and is trivial to compile. It
+compiles with DOS GCC (DJGPP) as is, and in LCCwin32, VC5 and Linux GCC with
+slight changes.
+
+Instructions:
+
+The programs for different platforms are placed in subdirectories
+dos, win32 and linux. Dos/win source code is in source directory, and
+the linux sources are in the linux directory with binaries.
+
+You need to copy the colormap.pcx, palette.pal and 16to8.dat to your
+work directory in order to use pcx2wal from there. It's recommended
+to have the suitable pcx2wal executable in your path. For example, copy
+win32/pcx2wal.exe to where you keep utils like pkunzip.
+
+What's new:
+- Added texture path parameter
+- Added automatic animation
+
+Usage:
+PCX2WAL <texture.pcx> [texture2.pcx] [texture3.pcx] ... [options]
+
+(Mass-op example: pcx2wal *.pcx -p -d -a)
+
+Options:
+-o <output.wal>  : Set the output file. By default, it's made from the
+                   source file name, e.g. foo.pcx -> foo.wal
+-t <texture path>: Set the texture directory name, e.g. e1u1/
+-n <animation>   : Set next animation frame... like anim0, anim1, anim2..
+-f <flags>       : Set default surface flags for texture (see below)
+-c <contents>    : Default content flags
+-v <value>       : Default value (for lights .. flags&1 is light)
+-a               : Makes animated textures automatically
+-p               : Ignores palette, use if your .pcx has Q2 palette already.
+                   This makes it run 3 times faster.
+-d               : Uses 16to8.dat file to find colors for rgb value. Makes
+                   per-pixel operations approx. 200 times faster.                
+
+Surface flags (add together to combine effects... 8+16 for water etc):
+  1: Light   - this makes the texture emit light.
+  2: Slick   - sets the surface slippery.
+  4: Sky     - show sky instead of a texture here
+  8: Warp    - for liquids
+ 16: Trans33 - transparent surface
+ 32: Trans66 - transparent surface (less transparent than trans33)
+ 64: flow    - moving texture?
+128: nodraw  - makes the engine not draw the polygon. (use for skies with 4?)
+
+Content flags:
+  1: solid
+  2: window
+  4: aux (unused)
+  8: lava
+ 16: slime
+ 32: water
+ 64: mist
+
+Auto animation:
+For -a option, you need .pcx files with names starting with _ and a number
+0-9. For example, _0tex.pcx, _1tex.pcx, _2tex.pcx ... The first must be 0.
+I used _ instead of + to make some operating systems recognize the
+filenames :)
+
+Required files:
+PCX2WAL requires a file "palette.pal" to run. It's a 768-byte piece that can
+be extracted from a 256c PCX file (e.g. colormap.pcx) with the included
+PCX2PAL.EXE. File named "16to8.dat" (extracted from Quake2 pak0.pak) is
+needed for -d option. It's basically 16bit to q2 palette conversion table.
+
+Place the resulting .wal files in quake2/baseq2/textures/mytex/ or something
+similar, and use option -t mytex/ in pcx2wal. Of course, use a UNIQUE dir
+name instead of "mytex" if you are going to distribute the textures, to
+avoid texture name collisions.
+
+If you're using a custom palette for a Quake2 conversion, make a pcx picture 
+with that palette, and run pcx2pal.exe, colormap.exe, and 16to8.exe to 
+create all the files you need to run pcx2wal and Quake2 with your custom
+palette.
+
+You may use this program and source code for anything you want, if you give
+me the credit for doing it first. If you're a coder and doing another texture
+utility based on this, I might answer code-related questions if I find time.
