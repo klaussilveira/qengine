@@ -41,6 +41,7 @@
 
 #if defined(__APPLE__)
 #include <sys/types.h>
+#include <unistd.h>
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
