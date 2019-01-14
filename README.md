@@ -53,6 +53,7 @@ file for further information.
     $ cd build
     $ cmake ..
     $ make
+If you don't want to build the docs, or you don't want to install the deps they require, you can pass `-DBUILD_DOCS=OFF` to cmake. 
 
 ## Running
 The engine will look for game data in the `assets` folder. You can start from
