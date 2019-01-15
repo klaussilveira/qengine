@@ -146,7 +146,7 @@ void RE_Draw_StretchPicImplementation(int x, int y, int w, int h, image_t *pic)
   int skip;
 
   if ((x < 0) || (x + w > vid.width) || (y + h > vid.height)) {
-    Sys_Error(ERR_FATAL, "Draw_Pic: bad coordinates");
+    Com_Error(ERR_FATAL, "Draw_Pic: bad coordinates");
   }
 
   height = h;

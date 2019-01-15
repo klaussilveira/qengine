@@ -915,7 +915,7 @@ void RE_RenderFrame(refdef_t *fd)
   r_newrefdef = *fd;
 
   if (!r_worldmodel && !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
-    Sys_Error(ERR_FATAL, "R_RenderView: NULL worldmodel");
+    Com_Error(ERR_FATAL, "R_RenderView: NULL worldmodel");
 
   VectorCopy(fd->vieworg, r_refdef.vieworg);
   VectorCopy(fd->viewangles, r_refdef.viewangles);
@@ -1062,7 +1062,7 @@ void RE_BeginFrame(float camera_separation)
                             "unavailable in this mode\n");
         sw_state.prev_mode = r_mode->value;
       } else {
-        Sys_Error(ERR_FATAL, "ref_soft::RE_BeginFrame() - catastrophic mode change failure\n");
+        Com_Error(ERR_FATAL, "ref_soft::RE_BeginFrame() - catastrophic mode change failure\n");
       }
     }
   }
@@ -1241,7 +1241,7 @@ void Draw_GetPalette(void)
   // get the palette and colormap
   LoadPCX("pics/colormap.pcx", &vid_colormap, &pal, NULL, NULL);
   if (!vid_colormap)
-    Sys_Error(ERR_FATAL, "Couldn't load pics/colormap.pcx");
+    Com_Error(ERR_FATAL, "Couldn't load pics/colormap.pcx");
   vid_alphamap = vid_colormap + 64 * 256;
 
   out = (byte *) d_8to24table;
