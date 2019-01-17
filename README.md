@@ -53,7 +53,12 @@ file for further information.
     $ cd build
     $ cmake ..
     $ make
-If you don't want to build the docs, or you don't want to install the deps they require, you can pass `-DBUILD_DOCS=OFF` to cmake. 
+
+If you don't want to build the docs, or you don't want to install the deps
+they require, you can pass `-DBUILD_DOCS=OFF` to cmake.
+
+    $ cmake -DBUILD_DOCS=OFF ..
+    $ make
 
 ## Running
 The engine will look for game data in the `assets` folder. You can start from
@@ -73,3 +78,27 @@ Included with the engine there are quite a few useful tools. They are:
 - pcx2pal
 - colormap
 - 16to8
+
+### UI
+- uigen
+- fontgen
+
+### Compiling maps
+    $ build/tools/qbsp3 assets/maps/sample.map
+    $ build/tools/qvis3 assets/maps/sample.bsp
+    $ build/tools/qrad3 assets/maps/sample.bsp
+
+## Base assets
+In order to run, the engine needs a few base assets, such as sounds, models
+and UI textures. Most of them are already included in the `assets` folder.
+
+## Palette
+The engine works with a 256 color palette. However, the `colormap.pcx` file is a 256x320 color re-arrangement of those colors, resulting in 64 shades of each.
+
+A GIMP palette is included to facilitate creation of new graphics for the engine: `assets/palette.gpl`
+
+If you want more creative freedom, you can easily create a new palette. Create
+a PCX file with the 256 colors you have chosen and then:
+
+    $ build/tools/pcx2pal palette.pcx palette.pal
+    $ build/tools/colormap palette.pal colormap.pcx

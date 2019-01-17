@@ -792,7 +792,7 @@ void SCR_TouchPics(void)
       crosshair->value = 3;
     }
 
-    Com_sprintf(crosshair_pic, sizeof(crosshair_pic), "ch%i", (int) (crosshair->value));
+    Com_sprintf(crosshair_pic, sizeof(crosshair_pic), "crosshair_%i", (int) (crosshair->value));
     Draw_GetPicSize(&crosshair_width, &crosshair_height, crosshair_pic);
 
     if (!crosshair_width) {
@@ -1002,7 +1002,7 @@ void SCR_ExecuteLayoutString(char *s)
       }
 
       if (cl.frame.playerstate.stats[STAT_FLASHES] & 1) {
-        Draw_PicScaled(x, y, "field_3", scale);
+        Draw_PicScaled(x, y, "stat_flash", scale);
       }
 
       SCR_DrawFieldScaled(x, y, color, width, value, scale);
@@ -1025,7 +1025,7 @@ void SCR_ExecuteLayoutString(char *s)
       }
 
       if (cl.frame.playerstate.stats[STAT_FLASHES] & 4) {
-        Draw_PicScaled(x, y, "field_3", scale);
+        Draw_PicScaled(x, y, "stat_flash", scale);
       }
 
       SCR_DrawFieldScaled(x, y, color, width, value, scale);
@@ -1046,7 +1046,7 @@ void SCR_ExecuteLayoutString(char *s)
       color = 0; /* green */
 
       if (cl.frame.playerstate.stats[STAT_FLASHES] & 2) {
-        Draw_PicScaled(x, y, "field_3", scale);
+        Draw_PicScaled(x, y, "stat_flash", scale);
       }
 
       SCR_DrawFieldScaled(x, y, color, width, value, scale);

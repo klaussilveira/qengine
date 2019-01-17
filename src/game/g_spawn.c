@@ -779,8 +779,8 @@ void SP_worldspawn(edict_t *ent)
 
   /* --------------- */
 
-  level.pic_health = SV_ImageIndex("i_health");
-  SV_ImageIndex("field_3");
+  level.pic_health = SV_ImageIndex("icon_health");
+  SV_ImageIndex("stat_flash");
 
   if (!st.gravity) {
     Cvar_Set("sv_gravity", "800");

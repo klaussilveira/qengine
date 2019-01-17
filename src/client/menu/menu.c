@@ -553,8 +553,6 @@ static void M_Main_Draw(void)
 
   Draw_GetPicSize(&w, &h, "m_main_plaque");
   Draw_PicScaled((xoffset - 30 - w) * scale, ystart * scale, "m_main_plaque", scale);
-
-  Draw_PicScaled((xoffset - 30 - w) * scale, (ystart + h + 5) * scale, "m_main_logo", scale);
 }
 
 const char *M_Main_Key(int key)

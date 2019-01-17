@@ -3,3 +3,8 @@
 /.idea/
 /assets/*
 !/assets/autoexec.cfg
+!/assets/config.cfg
+!/assets/default.cfg
+!/assets/maps
+!/assets/pics
+!/assets/textures
