@@ -48,7 +48,7 @@ void CalcTextureReflectivity(void)
   float r, scale;
   miptex_t *mt;
 
-  sprintf(path, "%spics/colormap.pcx", gamedir);
+  sprintf(path, "%s../pics/colormap.pcx", gamedir);
 
   // get the game palette
   Load256Image(path, NULL, &palette, NULL, NULL);
@@ -70,7 +70,7 @@ void CalcTextureReflectivity(void)
       continue;
 
     // load the wal file
-    sprintf(path, "%stextures/%s.wal", gamedir, texinfo[i].texture);
+    sprintf(path, "%s../textures/%s.wal", gamedir, texinfo[i].texture);
     if (TryLoadFile(path, (void **) &mt) == -1) {
       printf("Couldn't load %s\n", path);
       texture_reflectivity[i][0] = 0.5;

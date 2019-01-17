@@ -35,7 +35,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <libc.h>
 #endif
 
-#define ASSETS_DIRECTORY "quake2"
+#define ASSETS_DIRECTORY "assets"
 #define PATHSEPERATOR '/'
 
 // set these before calling CheckParm
@@ -194,8 +194,6 @@ void SetQdirFromPath(char *path)
     strcat(temp, path);
     path = temp;
   }
-
-  // search for "quake2" in path
 
   len = strlen(ASSETS_DIRECTORY);
   for (c = path + strlen(path) - 1; c != path; c--)
