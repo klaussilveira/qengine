@@ -85,9 +85,9 @@ endif()
 
 # Dependencies
 if(BUILD_SDL)
-  add_subdirectory(vendor/SDL2-2.0.8)
+  add_subdirectory(vendor/SDL2-2.0.10)
 
-  list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.8/include)
+  list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.10/include)
   list(APPEND COMMON_LINKER_FLAGS SDL2)
 
   set(CLIENT_PLATFORM_SOURCE ${CLIENT_PLATFORM_SOURCE} ${SDL_SOURCE})
