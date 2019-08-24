@@ -22,7 +22,6 @@ script:
   - make
 
 matrix:
-  fast_finish: true
   include:
     - env: PLATFORM=Unix COMPILER=gcc-6
       compiler: gcc
@@ -49,7 +48,8 @@ matrix:
         apt:
           packages: ['clang-3.6', 'clang++-3.6']
           sources: &sources
-            - llvm-toolchain-trusty-3.6
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.6
 
     - env: PLATFORM=Unix COMPILER=clang-5.0
       compiler: clang
@@ -58,4 +58,5 @@ matrix:
         apt:
           packages: ['clang-5.0', 'clang++-5.0']
           sources: &sources
+            - ubuntu-toolchain-r-test
             - llvm-toolchain-trusty-5.0
