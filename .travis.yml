@@ -57,6 +57,10 @@ matrix:
       addons:
         apt:
           packages: ['clang-5.0', 'clang++-5.0']
-          sources: &sources
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-trusty-5.0
+
+    - env: PLATFORM=Unix COMPILER=clang-6.0
+      compiler: clang
+      os: linux
+      addons:
+        apt:
+          packages: ['clang-6.0', 'clang++-6.0']
