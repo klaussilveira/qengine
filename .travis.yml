@@ -1,6 +1,6 @@
 env:
   global:
-   - secure: "U9UqoGbF/dyFKxfmZorAz/TxhA8XhrWKnMGg4JJucRWAi9Iangr/Djri+trtNoBElW2Fbyy9+z86xVyKMpqy2e6QK1+c5RwsFLSktOSn4uFI2xUoCS1fWl84wNX3pI/+yTmBka/xfa4HOLjr7rx5b3TI2zGAEgWODpI33vhG3urJLVAmPF0Cywdzer9lMHdAho0h4obWxhXp8qdaa9C/ax2Qrrk1Dma4qYqEBjtoO/nbauyS02vrZaexq+LLOIR6NRPdq78HWMAYwhrIgMkEeFFJRaNLkUOFTN+0e074AEt/dY3gPsWp4WRFdGv88/wTJzsl47236fkN+lzoWNRVChBWcpEnTuJubYzzAZg4fiPs3v2dD4sl0QtOkpeJy0cnMcpTwM9PCRWfprb4WsQAVswxQTxk8ND4yel6NPiSe865UCsf6565K2VUwl3eGol6HZMh5hO/r+vqHRsMp0D1HQuQszzER+D5RopG2sXngHzgegWLLzE7elHZcdcuhfZz84tQOHjhYBk7m8q6nb1F1jf2E+OBcRaIqfp3kC8anu3GZEia15lM5NVGWdDP2+a9x+rr4FHe6g+DqOuO/BNTkdJFCoRLUYbB7TxQyZgabUuOPNTwuDfZFIRzCsVR+6f8sUvt3eF31BgujQnpF8nVc1I8rGcduDQckhAzpPWorYo="
+   - secure: "XXWQ9WPknj3dAN1c2/ummDq5nL3UKMgaVRKtd1Dv7jOcW9W8roAJhrsoNU2URvtPvxvAOTS8pjQPUTkq1a0vhOdmUTBos1g1q2H5Nn4pfBBhIVKnaU2ds+ugiPaGxzyc7u1X9D32GWfcPZOspoppCSEhVtUkxFLNuNQCKWor0ybfT13q/4Q7gGyq3pocelNH1MOXm/VBsC644tec+DXvu1R3dLOOYFjzpksM31Xf8vddodwWdeMcZxJFXDEhQOw86/CdKv4s7Xr1MyKuoqDhCn9pKqNQduPgE4XDWQaawT0rbIF+a81eg3kMt3PpEL4Zr0hUXw1vzg/lDMBIFd53XdBQV7FCkWOKURGcd/tcM28KM+3QYxlEO1VlyF8wZHT/I0dypS6vnDOuTqHcs2b9Yo62iiBzkqYn8fEtm2a4aRg9z18c7Ze/ZZjxJLhA4jYpMAP0643xE6LvnK4qoeqIEWrZsdpF8tDduRXe1nuzFlILifaksqXi1lf51s+oJGJLTETeT+ypdEGFiCG8JMMJ0XC8/MDb7/obBJvrjZ1J4jtRX7TnDAV9/BvODF1ZF7cs2dqEV6dHNwiNn6zwbESRrU1e9x6AuUNWGD/8GgGouRB1XhgqlAX4YcuCiEuaVXj6ZpsWyPITa+RwMP6HueZkqsMP1UF/SSrKt0lg14QUN9A="
 
 before_install:
   - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
@@ -10,16 +10,17 @@ addons:
     project:
       name: "klaussilveira/qengine"
     notification_email: contact@klaussilveira.com
-    build_command_prepend: "mkdir build && cd build && cmake -DBUILD_DOCS=OFF .."
+    build_command_prepend: "mkdir build && cd build && cmake .."
     build_command: "make -j2"
-    branch_pattern: master
+    branch_pattern: coverity_scan
 
 language: c
 script:
   - mkdir build
   - cd build
-  - cmake -DBUILD_DOCS=OFF ..
+  - cmake ..
   - make
+  - make lint_check
 
 matrix:
   include:

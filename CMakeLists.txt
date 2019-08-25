@@ -3,7 +3,7 @@ project(qengine VERSION 0.1.0)
 
 option(BUILD_TOOLS "Build tools" ON)
 option(BUILD_SDL "Build SDL platform" ON)
-option(BUILD_DOCS "Build documentation" ON)
+option(BUILD_DOCS "Build documentation" OFF)
 
 add_definitions(-DENGINE_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fno-strict-aliasing -fwrapv")
@@ -301,3 +301,16 @@ if(BUILD_DOCS)
                     COMMENT "Generating docs"
                     VERBATIM)
 endif()
+
+# QA
+add_custom_target(lint_check
+  COMMAND find ${SOURCE_DIR} -iname *.h -o -iname *.c | xargs clang-format -output-replacements-xml | grep -c "<replacement " > /dev/null && echo "clang-format detected issues" && exit 1 || echo "No clang-format issues detected" && exit 0
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  VERBATIM
+)
+
+add_custom_target(lint
+  COMMAND find ${SOURCE_DIR} -iname *.h -o -iname *.c | xargs clang-format -i
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  VERBATIM
+)

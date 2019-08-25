@@ -939,13 +939,13 @@ gitem_t itemlist[] = {
 
     /* QUAKED weapon_supershotgun (.3 .3 1) (-16 -16 -16) (16 16 16) */
     {"weapon_supershotgun", Pickup_Weapon, Use_Weapon, Drop_Weapon, Weapon_SuperShotgun, "misc/w_pkup.wav",
-     "models/weapons/g_shotg2/tris.md2", EF_ROTATE, "models/weapons/v_shotg2/tris.md2", "icon_sshotgun", "Super Shotgun",
-     0, 2, "Shells", IT_WEAPON | IT_STAY_COOP, WEAP_SUPERSHOTGUN, NULL, 0, "weapons/sshotf1b.wav"},
+     "models/weapons/g_shotg2/tris.md2", EF_ROTATE, "models/weapons/v_shotg2/tris.md2", "icon_sshotgun",
+     "Super Shotgun", 0, 2, "Shells", IT_WEAPON | IT_STAY_COOP, WEAP_SUPERSHOTGUN, NULL, 0, "weapons/sshotf1b.wav"},
 
     /* QUAKED weapon_machinegun (.3 .3 1) (-16 -16 -16) (16 16 16) */
     {"weapon_machinegun", Pickup_Weapon, Use_Weapon, Drop_Weapon, Weapon_Machinegun, "misc/w_pkup.wav",
-     "models/weapons/g_machn/tris.md2", EF_ROTATE, "models/weapons/v_machn/tris.md2", "icon_machinegun", "Machinegun", 0,
-     1, "Bullets", IT_WEAPON | IT_STAY_COOP, WEAP_MACHINEGUN, NULL, 0,
+     "models/weapons/g_machn/tris.md2", EF_ROTATE, "models/weapons/v_machn/tris.md2", "icon_machinegun", "Machinegun",
+     0, 1, "Bullets", IT_WEAPON | IT_STAY_COOP, WEAP_MACHINEGUN, NULL, 0,
      "weapons/machgf1b.wav weapons/machgf2b.wav weapons/machgf3b.wav "
      "weapons/machgf4b.wav weapons/machgf5b.wav"},
 
@@ -958,8 +958,8 @@ gitem_t itemlist[] = {
 
     /* QUAKED ammo_grenades (.3 .3 1) (-16 -16 -16) (16 16 16) */
     {"ammo_grenades", Pickup_Ammo, Use_Weapon, Drop_Ammo, Weapon_Grenade, "misc/am_pkup.wav",
-     "models/items/ammo/grenades/medium/tris.md2", 0, "models/weapons/v_handgr/tris.md2", "icon_grenades", "Grenades", 3,
-     5, "grenades", IT_AMMO | IT_WEAPON, WEAP_GRENADES, NULL, AMMO_GRENADES,
+     "models/items/ammo/grenades/medium/tris.md2", 0, "models/weapons/v_handgr/tris.md2", "icon_grenades", "Grenades",
+     3, 5, "grenades", IT_AMMO | IT_WEAPON, WEAP_GRENADES, NULL, AMMO_GRENADES,
      "weapons/hgrent1a.wav weapons/hgrena1b.wav weapons/hgrenc1b.wav "
      "weapons/hgrenb1a.wav weapons/hgrenb2a.wav "},
 
