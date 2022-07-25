@@ -1,6 +1,7 @@
 # qengine
-[![Build Status](https://travis-ci.com/klaussilveira/qengine.svg?branch=master)](https://travis-ci.com/klaussilveira/qengine)
-[![GitHub license](https://img.shields.io/github/license/klaussilveira/qengine.svg)](https://github.com/klaussilveira/qengine/blob/master/LICENSE)
+![Build Status](https://github.com/klaussilveira/qengine/actions/workflows/build.yml/badge.svg)
+[![GitHub release](https://img.shields.io/github/release/klaussilveira/qengine.svg)](https://github.com/klaussilveira/qengine/releases/latest)
+[![License](https://img.shields.io/github/license/klaussilveira/qengine)](https://github.com/klaussilveira/qengine/blob/master/LICENSE)
 
 qengine is a cross-platform retro game engine. It is aimed at nostalgic game
 developers that miss simple times and enjoy creating games like it's 1997. The
@@ -84,9 +85,9 @@ Included with the engine there are quite a few useful tools. They are:
 - fontgen
 
 ### Compiling maps
-    $ build/tools/qbsp3 assets/maps/sample.map
-    $ build/tools/qvis3 assets/maps/sample.bsp
-    $ build/tools/qrad3 assets/maps/sample.bsp
+    $ tools/qbsp3 assets/maps/sample.map
+    $ tools/qvis3 assets/maps/sample.bsp
+    $ tools/qrad3 assets/maps/sample.bsp
 
 ## Base assets
 In order to run, the engine needs a few base assets, such as sounds, models
@@ -100,5 +101,5 @@ A GIMP palette is included to facilitate creation of new graphics for the engine
 If you want more creative freedom, you can easily create a new palette. Create
 a PCX file with the 256 colors you have chosen and then:
 
-    $ build/tools/pcx2pal palette.pcx palette.pal
-    $ build/tools/colormap palette.pal colormap.pcx
+    $ tools/pcx2pal palette.pcx palette.pal
+    $ tools/colormap palette.pal colormap.pcx
