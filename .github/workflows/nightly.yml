@@ -28,10 +28,10 @@ jobs:
 
       - name: Build package
         run: |
-          cp build/client client
-          cp build/server server
-          cp -R tools/ .
-          cp -R docs/html/ docs/
+          cp ${{ env.CMAKE_BUILD_DIR }}/client client
+          cp ${{ env.CMAKE_BUILD_DIR }}/server server
+          cp -R ${{ env.CMAKE_BUILD_DIR }}/tools/ .
+          cp -R ${{ env.CMAKE_BUILD_DIR }}/docs/html/ docs/
           zip -r qengine-nightly.zip assets/ tools/ docs/ client server
 
       - name: Release
