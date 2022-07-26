@@ -6,7 +6,7 @@ option(BUILD_SDL "Build SDL platform" ON)
 option(BUILD_DOCS "Build documentation" OFF)
 
 add_definitions(-DENGINE_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fno-strict-aliasing -fwrapv")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fno-strict-aliasing -fwrapv -fcommon")
 string(REPLACE "-O3"
                "-O2"
                CMAKE_C_FLAGS_RELEASE
@@ -85,9 +85,9 @@ endif()
 
 # Dependencies
 if(BUILD_SDL)
-  add_subdirectory(vendor/SDL2-2.0.10)
+  add_subdirectory(vendor/SDL2-2.0.22)
 
-  list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.10/include)
+  list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.22/include)
   list(APPEND COMMON_LINKER_FLAGS SDL2)
 
   set(CLIENT_PLATFORM_SOURCE ${CLIENT_PLATFORM_SOURCE} ${SDL_SOURCE})
