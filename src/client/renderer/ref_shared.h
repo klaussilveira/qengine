@@ -57,9 +57,15 @@ typedef enum
 } modtype_t;
 
 #define MAX_LBM_HEIGHT 480
+#define POWERSUIT_SCALE 4.0F
 
 extern void R_Printf(int level, const char *msg, ...) __attribute__((format(printf, 2, 3)));
 
 extern void LoadPCX(char *origname, byte **pic, byte **palette, int *width, int *height);
+
+#ifdef USE_GL_RENDERER
+extern float Mod_RadiusFromBounds(const vec3_t mins, const vec3_t maxs);
+extern byte* Mod_DecompressVis(byte *in, int row);
+#endif
 
 #endif /* SRC_CLIENT_REFRESH_REF_SHARED_H_ */

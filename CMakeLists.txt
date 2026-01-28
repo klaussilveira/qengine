@@ -4,6 +4,7 @@ project(qengine VERSION 0.1.0)
 option(BUILD_TOOLS "Build tools" ON)
 option(BUILD_SDL "Build SDL platform" ON)
 option(BUILD_DOCS "Build documentation" OFF)
+option(BUILD_GL_RENDERER "Build OpenGL renderer instead of software renderer" OFF)
 
 add_definitions(-DENGINE_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fno-strict-aliasing -fwrapv -fcommon")
@@ -38,6 +39,14 @@ if("${ARCH}" STREQUAL "x86_64")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpmath=sse")
 endif()
 
+# OpenGL renderer support
+if(BUILD_GL_RENDERER)
+  find_package(OpenGL REQUIRED)
+  message(STATUS "Building with both software and OpenGL renderers")
+else()
+  message(STATUS "Building with software renderer only")
+endif()
+
 set(SERVER_PLATFORM_SOURCE ${SOURCE_DIR}/platform/generic/misc.c)
 
 set(CLIENT_PLATFORM_SOURCE ${SOURCE_DIR}/platform/generic/misc.c ${SOURCE_DIR}/platform/generic/vid.c)
@@ -48,9 +57,65 @@ set(CLIENT_PLATFORM_HEADER
     ${SOURCE_DIR}/platform/sound.h)
 
 set(SDL_SOURCE
-    ${SOURCE_DIR}/platform/sdl/graphics.c
     ${SOURCE_DIR}/platform/sdl/input.c
     ${SOURCE_DIR}/platform/sdl/sound.c)
+
+set(SDL_SOURCE_SW ${SDL_SOURCE} ${SOURCE_DIR}/platform/sdl/graphics.c)
+set(SDL_SOURCE_GL ${SDL_SOURCE} ${SOURCE_DIR}/platform/sdl/graphics_gl.c)
+
+# Software renderer sources
+set(RENDERER_SOURCE_SW
+    ${SOURCE_DIR}/client/renderer/sw_aclip.c
+    ${SOURCE_DIR}/client/renderer/sw_alias.c
+    ${SOURCE_DIR}/client/renderer/sw_bsp.c
+    ${SOURCE_DIR}/client/renderer/sw_draw.c
+    ${SOURCE_DIR}/client/renderer/sw_edge.c
+    ${SOURCE_DIR}/client/renderer/sw_image.c
+    ${SOURCE_DIR}/client/renderer/sw_light.c
+    ${SOURCE_DIR}/client/renderer/sw_main.c
+    ${SOURCE_DIR}/client/renderer/sw_misc.c
+    ${SOURCE_DIR}/client/renderer/sw_model.c
+    ${SOURCE_DIR}/client/renderer/sw_part.c
+    ${SOURCE_DIR}/client/renderer/sw_poly.c
+    ${SOURCE_DIR}/client/renderer/sw_polyse.c
+    ${SOURCE_DIR}/client/renderer/sw_rast.c
+    ${SOURCE_DIR}/client/renderer/sw_scan.c
+    ${SOURCE_DIR}/client/renderer/sw_sprite.c
+    ${SOURCE_DIR}/client/renderer/sw_surf.c)
+
+set(RENDERER_HEADER_SW
+    ${SOURCE_DIR}/client/renderer/constants/adivtab.h
+    ${SOURCE_DIR}/client/renderer/header/local.h
+    ${SOURCE_DIR}/client/renderer/header/model.h
+    ${SOURCE_DIR}/client/renderer/ref_shared.h)
+
+# OpenGL renderer sources
+set(RENDERER_SOURCE_GL
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_draw.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_image.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_light.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_lightmap.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_main.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_md2.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_mesh.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_misc.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_model.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_scrap.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_sdl.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_sp2.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_surf.c
+    ${SOURCE_DIR}/client/renderer/gl1/gl1_warp.c
+    ${SOURCE_DIR}/client/renderer/gl1/qgl.c
+    ${SOURCE_DIR}/client/renderer/files/pcx.c
+    ${SOURCE_DIR}/client/renderer/files/wal.c
+    ${SOURCE_DIR}/client/renderer/files/stb.c
+    ${SOURCE_DIR}/client/renderer/files/pvs.c)
+
+set(RENDERER_HEADER_GL
+    ${SOURCE_DIR}/client/renderer/gl1/header/local.h
+    ${SOURCE_DIR}/client/renderer/gl1/header/model.h
+    ${SOURCE_DIR}/client/renderer/gl1/header/qgl.h
+    ${SOURCE_DIR}/client/renderer/ref_shared.h)
 
 set(UNIX_SOURCE
     ${SOURCE_DIR}/platform/unix/main.c
@@ -89,8 +154,6 @@ if(BUILD_SDL)
 
   list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.22/include)
   list(APPEND COMMON_LINKER_FLAGS SDL2)
-
-  set(CLIENT_PLATFORM_SOURCE ${CLIENT_PLATFORM_SOURCE} ${SDL_SOURCE})
 endif()
 
 set(GAME_SOURCE
@@ -175,24 +238,7 @@ set(CLIENT_SOURCE
     ${SOURCE_DIR}/server/sv_main.c
     ${SOURCE_DIR}/server/sv_send.c
     ${SOURCE_DIR}/server/sv_user.c
-    ${SOURCE_DIR}/server/sv_world.c
-    ${SOURCE_DIR}/client/renderer/sw_aclip.c
-    ${SOURCE_DIR}/client/renderer/sw_alias.c
-    ${SOURCE_DIR}/client/renderer/sw_bsp.c
-    ${SOURCE_DIR}/client/renderer/sw_draw.c
-    ${SOURCE_DIR}/client/renderer/sw_edge.c
-    ${SOURCE_DIR}/client/renderer/sw_image.c
-    ${SOURCE_DIR}/client/renderer/sw_light.c
-    ${SOURCE_DIR}/client/renderer/sw_main.c
-    ${SOURCE_DIR}/client/renderer/sw_misc.c
-    ${SOURCE_DIR}/client/renderer/sw_model.c
-    ${SOURCE_DIR}/client/renderer/sw_part.c
-    ${SOURCE_DIR}/client/renderer/sw_poly.c
-    ${SOURCE_DIR}/client/renderer/sw_polyse.c
-    ${SOURCE_DIR}/client/renderer/sw_rast.c
-    ${SOURCE_DIR}/client/renderer/sw_scan.c
-    ${SOURCE_DIR}/client/renderer/sw_sprite.c
-    ${SOURCE_DIR}/client/renderer/sw_surf.c)
+    ${SOURCE_DIR}/server/sv_world.c)
 
 set(CLIENT_HEADER
     ${SOURCE_DIR}/client/header/client.h
@@ -210,10 +256,7 @@ set(CLIENT_HEADER
     ${SOURCE_DIR}/common/header/glob.h
     ${SOURCE_DIR}/common/header/shared.h
     ${SOURCE_DIR}/common/header/zone.h
-    ${SOURCE_DIR}/server/header/server.h
-    ${SOURCE_DIR}/client/renderer/constants/adivtab.h
-    ${SOURCE_DIR}/client/renderer/header/local.h
-    ${SOURCE_DIR}/client/renderer/header/model.h)
+    ${SOURCE_DIR}/server/header/server.h)
 
 set(SERVER_SOURCE
     ${SOURCE_DIR}/common/argproc.c
@@ -255,16 +298,51 @@ set(SERVER_HEADER
 include_directories(${PROJECT_INCLUDE_DIRS})
 link_directories(${PROJECT_LINK_DIRS})
 
-# Client
-add_executable(client
-               ${CLIENT_PLATFORM_SOURCE}
-               ${CLIENT_PLATFORM_HEADER}
-               ${CLIENT_SOURCE}
-               ${CLIENT_HEADER}
-               ${GAME_SOURCE}
-               ${GAME_HEADER})
-set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-target_link_libraries(client ${COMMON_LINKER_FLAGS} ${CLIENT_LINKER_FLAGS})
+# Client executables
+if(BUILD_GL_RENDERER)
+  # Software renderer client
+  add_executable(client-sw
+                 ${CLIENT_PLATFORM_SOURCE}
+                 ${CLIENT_PLATFORM_HEADER}
+                 ${SDL_SOURCE_SW}
+                 ${CLIENT_SOURCE}
+                 ${CLIENT_HEADER}
+                 ${RENDERER_SOURCE_SW}
+                 ${RENDERER_HEADER_SW}
+                 ${GAME_SOURCE}
+                 ${GAME_HEADER})
+  set_target_properties(client-sw PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  target_link_libraries(client-sw ${COMMON_LINKER_FLAGS} ${CLIENT_LINKER_FLAGS})
+
+  # OpenGL renderer client
+  add_executable(client-gl
+                 ${CLIENT_PLATFORM_SOURCE}
+                 ${CLIENT_PLATFORM_HEADER}
+                 ${SDL_SOURCE_GL}
+                 ${CLIENT_SOURCE}
+                 ${CLIENT_HEADER}
+                 ${RENDERER_SOURCE_GL}
+                 ${RENDERER_HEADER_GL}
+                 ${GAME_SOURCE}
+                 ${GAME_HEADER})
+  set_target_properties(client-gl PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  target_compile_definitions(client-gl PRIVATE USE_GL_RENDERER)
+  target_link_libraries(client-gl ${COMMON_LINKER_FLAGS} ${CLIENT_LINKER_FLAGS} OpenGL::GL)
+else()
+  # Software renderer only
+  add_executable(client-sw
+                 ${CLIENT_PLATFORM_SOURCE}
+                 ${CLIENT_PLATFORM_HEADER}
+                 ${SDL_SOURCE_SW}
+                 ${CLIENT_SOURCE}
+                 ${CLIENT_HEADER}
+                 ${RENDERER_SOURCE_SW}
+                 ${RENDERER_HEADER_SW}
+                 ${GAME_SOURCE}
+                 ${GAME_HEADER})
+  set_target_properties(client-sw PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  target_link_libraries(client-sw ${COMMON_LINKER_FLAGS} ${CLIENT_LINKER_FLAGS})
+endif()
 
 # Dedicated Server
 add_executable(server
