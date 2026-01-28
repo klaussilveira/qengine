@@ -43,6 +43,7 @@ static cvar_t *r_vsync;
 static cvar_t *r_scale;
 static cvar_t *r_scale_width;
 static cvar_t *r_scale_height;
+static cvar_t *r_udither;
 
 static menuframework_s s_video_menu;
 
@@ -54,6 +55,7 @@ static menulist_s s_fs_box;
 static menulist_s s_vsync_list;
 static menulist_s s_scale_list;
 static menulist_s s_scale_res_list;
+static menulist_s s_dither_list;
 static menuaction_s s_defaults_action;
 static menuaction_s s_apply_action;
 
@@ -175,6 +177,11 @@ static void onApplyChanges()
     }
   }
 
+  /* Dithering */
+  if (r_udither->value != s_dither_list.curvalue) {
+    Cvar_SetValue("r_udither", s_dither_list.curvalue);
+  }
+
   if (restart) {
     Cbuf_AddText("vid_restart\n");
   }
@@ -252,6 +259,10 @@ void VID_MenuInit(void)
 
   if (!r_scale_height) {
     r_scale_height = Cvar_Get("r_scale_height", "240", CVAR_ARCHIVE);
+  }
+
+  if (!r_udither) {
+    r_udither = Cvar_Get("r_udither", "0", CVAR_ARCHIVE);
   }
 
   s_mode_list.generic.type = MTYPE_SPINCONTROL;
@@ -337,6 +348,13 @@ void VID_MenuInit(void)
     }
   }
 
+  s_dither_list.generic.type = MTYPE_SPINCONTROL;
+  s_dither_list.generic.name = "dithering";
+  s_dither_list.generic.x = 0;
+  s_dither_list.generic.y = (y += 10);
+  s_dither_list.itemnames = yesno_names;
+  s_dither_list.curvalue = (r_udither->value != 0);
+
   s_defaults_action.generic.type = MTYPE_ACTION;
   s_defaults_action.generic.name = "reset to default";
   s_defaults_action.generic.x = 0;
@@ -360,6 +378,7 @@ void VID_MenuInit(void)
   Menu_AddItem(&s_video_menu, (void *) &s_vsync_list);
   Menu_AddItem(&s_video_menu, (void *) &s_scale_list);
   Menu_AddItem(&s_video_menu, (void *) &s_scale_res_list);
+  Menu_AddItem(&s_video_menu, (void *) &s_dither_list);
   Menu_AddItem(&s_video_menu, (void *) &s_defaults_action);
   Menu_AddItem(&s_video_menu, (void *) &s_apply_action);
 

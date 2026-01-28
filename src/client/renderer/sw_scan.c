@@ -482,11 +482,35 @@ void D_DrawSpans16(espan_t *pspan)
         }
       }
 
-      do {
-        *pdest++ = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
-        s += sstep;
-        t += tstep;
-      } while (--spancount > 0);
+      if (r_udither->value == 0) {
+        do {
+          *pdest++ = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
+          s += sstep;
+          t += tstep;
+        } while (--spancount > 0);
+      } else {
+        int sc = spancount;
+        do {
+          int idiths = s;
+          int iditht = t;
+
+          int X = (pspan->u + (sc - spancount)) & 1;
+          int Y = pspan->v & 1;
+
+          idiths += r_ditherkernel[Y][X][0];
+          iditht += r_ditherkernel[Y][X][1];
+
+          /* Clamp to texture bounds to prevent artifacts at edges */
+          if (idiths > bbextents)
+            idiths = bbextents;
+          if (iditht > bbextentt)
+            iditht = bbextentt;
+
+          *pdest++ = *(pbase + (idiths >> 16) + (iditht >> 16) * cachewidth);
+          s += sstep;
+          t += tstep;
+        } while (--spancount > 0);
+      }
 
       s = snext;
       t = tnext;

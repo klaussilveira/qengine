@@ -144,6 +144,26 @@ cvar_t *r_scale;
 cvar_t *r_scale_width;
 cvar_t *r_scale_height;
 
+cvar_t *r_udither;
+
+/*
+ * Unreal-style dither kernel (Tim Sweeney's technique)
+ * From: https://www.flipcode.com/archives/Texturing_As_In_Unreal.shtml
+ *
+ * (Y&1)==0 | u+=.25, v+=.00 | u+=.50, v+=.75
+ * (Y&1)==1 | u+=.75, v+=.50 | u+=.00, v+=.25
+ *
+ * Values in 16.16 fixed-point:
+ * 16384 / 65536 = 0.25
+ * 32768 / 65536 = 0.50
+ * 49152 / 65536 = 0.75
+ */
+#define FIXED16(x) ((int)((x) * 65536.0f))
+const int r_ditherkernel[2][2][2] = {
+    {{FIXED16(0.25f), 0}, {FIXED16(0.50f), FIXED16(0.75f)}},
+    {{FIXED16(0.75f), FIXED16(0.50f)}, {0, FIXED16(0.25f)}}
+};
+
 cvar_t *r_speeds;
 cvar_t *r_lightlevel; // FIXME HACK
 
@@ -286,6 +306,8 @@ void R_Register(void)
   r_scale = Cvar_Get("r_scale", "0", CVAR_ARCHIVE);
   r_scale_width = Cvar_Get("r_scale_width", "320", CVAR_ARCHIVE);
   r_scale_height = Cvar_Get("r_scale_height", "240", CVAR_ARCHIVE);
+
+  r_udither = Cvar_Get("r_udither", "0", CVAR_ARCHIVE);
 
   vid_fullscreen = Cvar_Get("vid_fullscreen", "0", CVAR_ARCHIVE);
   vid_gamma = Cvar_Get("vid_gamma", "1.0", CVAR_ARCHIVE);
