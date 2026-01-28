@@ -140,6 +140,10 @@ cvar_t *r_vsync;
 cvar_t *r_customwidth;
 cvar_t *r_customheight;
 
+cvar_t *r_scale;
+cvar_t *r_scale_width;
+cvar_t *r_scale_height;
+
 cvar_t *r_speeds;
 cvar_t *r_lightlevel; // FIXME HACK
 
@@ -278,6 +282,10 @@ void R_Register(void)
   r_vsync = Cvar_Get("r_vsync", "1", CVAR_ARCHIVE);
   r_customwidth = Cvar_Get("r_customwidth", "1024", CVAR_ARCHIVE);
   r_customheight = Cvar_Get("r_customheight", "768", CVAR_ARCHIVE);
+
+  r_scale = Cvar_Get("r_scale", "0", CVAR_ARCHIVE);
+  r_scale_width = Cvar_Get("r_scale_width", "320", CVAR_ARCHIVE);
+  r_scale_height = Cvar_Get("r_scale_height", "240", CVAR_ARCHIVE);
 
   vid_fullscreen = Cvar_Get("vid_fullscreen", "0", CVAR_ARCHIVE);
   vid_gamma = Cvar_Get("vid_gamma", "1.0", CVAR_ARCHIVE);
@@ -1030,12 +1038,17 @@ void RE_BeginFrame(float camera_separation)
     sw_overbrightbits->modified = false;
   }
 
-  while (r_mode->modified || vid_fullscreen->modified || r_vsync->modified) {
+  while (r_mode->modified || vid_fullscreen->modified || r_vsync->modified ||
+         r_scale->modified || r_scale_width->modified || r_scale_height->modified) {
     rserr_t err;
+    int win_width, win_height;
 
+    // Determine window size from mode
     if (r_mode->value == -1) {
-      vid.width = r_customwidth->value;
-      vid.height = r_customheight->value;
+      win_width = r_customwidth->value;
+      win_height = r_customheight->value;
+    } else {
+      VID_GetModeInfo(&win_width, &win_height, r_mode->value);
     }
 
     /*
@@ -1043,13 +1056,16 @@ void RE_BeginFrame(float camera_separation)
     *a
     ** fullscreen mode, e.g. 320x200 on a system that doesn't support that res
     */
-    if ((err = SWimp_SetMode(&vid.width, &vid.height, r_mode->value, vid_fullscreen->value)) == rserr_ok) {
+    if ((err = SWimp_SetMode(&win_width, &win_height, r_mode->value, vid_fullscreen->value)) == rserr_ok) {
       R_InitGraphics(vid.width, vid.height);
 
       sw_state.prev_mode = r_mode->value;
       vid_fullscreen->modified = false;
       r_mode->modified = false;
       r_vsync->modified = false;
+      r_scale->modified = false;
+      r_scale_width->modified = false;
+      r_scale_height->modified = false;
     } else {
       if (err == rserr_invalid_mode) {
         Cvar_SetValue("r_mode", sw_state.prev_mode);
@@ -1377,8 +1393,9 @@ char shift_size;
 */
 static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheight)
 {
-  int width = *pwidth;
-  int height = *pheight;
+  int win_width = *pwidth;
+  int win_height = *pheight;
+  int render_width, render_height;
 
   if (gfx_update_fullscreen(fullscreen)) {
     return true;
@@ -1386,11 +1403,37 @@ static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheigh
 
   SWimp_DestroyRender();
 
-  // let the sound and input subsystems know about the new window
+  // For fullscreen desktop mode, use native desktop resolution
+  if (fullscreen == 1) {
+    gfx_get_desktop_size(&win_width, &win_height);
+    R_Printf(PRINT_ALL, "Fullscreen desktop: using native resolution %dx%d\n", win_width, win_height);
+  }
+
+  // Determine if we should scale or not
+  if (r_scale->value > 0) {
+    render_width = (int)r_scale_width->value;
+    render_height = (int)r_scale_height->value;
+
+    // Set a minimum dimension
+    if (render_width < 320) render_width = 320;
+    if (render_height < 200) render_height = 200;
+
+    R_Printf(PRINT_ALL, "Integer scaling: rendering at %dx%d, window at %dx%d\n",
+             render_width, render_height, win_width, win_height);
+  } else {
+    render_width = win_width;
+    render_height = win_height;
+  }
+
+  // Set vid dimensions to RENDER resolution (not window)
+  vid.width = render_width;
+  vid.height = render_height;
+
+  // Let the sound and input subsystems know about the new window
   VID_NewWindow(vid.width, vid.height);
 
   while (1) {
-    if (!gfx_create_window(fullscreen, r_vsync->value, width, height)) {
+    if (!gfx_create_window(fullscreen, r_vsync->value, win_width, win_height, render_width, render_height)) {
       Sys_Error("Failed to create window: %s\n", gfx_get_error());
       return false;
     } else {

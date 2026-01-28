@@ -40,6 +40,9 @@ extern cvar_t *scr_viewsize;
 extern cvar_t *vid_gamma;
 extern cvar_t *vid_fullscreen;
 static cvar_t *r_vsync;
+static cvar_t *r_scale;
+static cvar_t *r_scale_width;
+static cvar_t *r_scale_height;
 
 static menuframework_s s_video_menu;
 
@@ -49,8 +52,30 @@ static menuslider_s s_brightness_slider;
 static menuslider_s s_fov_slider;
 static menulist_s s_fs_box;
 static menulist_s s_vsync_list;
+static menulist_s s_scale_list;
+static menulist_s s_scale_res_list;
 static menuaction_s s_defaults_action;
 static menuaction_s s_apply_action;
+
+static int scale_heights[] = {
+  200,
+  240,
+  400,
+  480,
+  600,
+  720,
+  0
+};
+
+static const char *scale_res_names[] = {
+  "200p (1x)",
+  "240p",
+  "400p (2x)",
+  "480p",
+  "600p (3x)",
+  "720p",
+  0
+};
 
 static int GetCustomValue(menulist_s *list)
 {
@@ -117,10 +142,37 @@ static void onApplyChanges()
   /* Restarts automatically */
   Cvar_SetValue("vid_fullscreen", s_fs_box.curvalue);
 
-  /* vertical sync */
+  /* Vertical sync */
   if (r_vsync->value != s_vsync_list.curvalue) {
     Cvar_SetValue("r_vsync", s_vsync_list.curvalue);
     restart = true;
+  }
+
+  /* Integer scaling */
+  if (r_scale->value != s_scale_list.curvalue) {
+    Cvar_SetValue("r_scale", s_scale_list.curvalue);
+    restart = true;
+  }
+
+  /* Render resolution for integer scaling */
+  if (s_scale_list.curvalue) {
+    int idx = s_scale_res_list.curvalue;
+    int height = scale_heights[idx];
+    int width;
+    int desk_w, desk_h;
+
+    /* Get desktop resolution to calculate aspect ratio */
+    extern void gfx_get_desktop_size(int *width, int *height);
+    gfx_get_desktop_size(&desk_w, &desk_h);
+
+    /* Calculate width from desktop aspect ratio, round to multiple of 4 */
+    width = (height * desk_w / desk_h + 2) & ~3;
+
+    if ((int)r_scale_width->value != width || (int)r_scale_height->value != height) {
+      Cvar_SetValue("r_scale_width", width);
+      Cvar_SetValue("r_scale_height", height);
+      restart = true;
+    }
   }
 
   if (restart) {
@@ -190,6 +242,18 @@ void VID_MenuInit(void)
     r_vsync = Cvar_Get("r_vsync", "1", CVAR_ARCHIVE);
   }
 
+  if (!r_scale) {
+    r_scale = Cvar_Get("r_scale", "0", CVAR_ARCHIVE);
+  }
+
+  if (!r_scale_width) {
+    r_scale_width = Cvar_Get("r_scale_width", "320", CVAR_ARCHIVE);
+  }
+
+  if (!r_scale_height) {
+    r_scale_height = Cvar_Get("r_scale_height", "240", CVAR_ARCHIVE);
+  }
+
   s_mode_list.generic.type = MTYPE_SPINCONTROL;
   s_mode_list.generic.name = "video mode";
   s_mode_list.generic.x = 0;
@@ -251,6 +315,28 @@ void VID_MenuInit(void)
   s_vsync_list.itemnames = yesno_names;
   s_vsync_list.curvalue = (r_vsync->value != 0);
 
+  s_scale_list.generic.type = MTYPE_SPINCONTROL;
+  s_scale_list.generic.name = "integer scaling";
+  s_scale_list.generic.x = 0;
+  s_scale_list.generic.y = (y += 20);
+  s_scale_list.itemnames = yesno_names;
+  s_scale_list.curvalue = (r_scale->value != 0);
+
+  s_scale_res_list.generic.type = MTYPE_SPINCONTROL;
+  s_scale_res_list.generic.name = "render height";
+  s_scale_res_list.generic.x = 0;
+  s_scale_res_list.generic.y = (y += 10);
+  s_scale_res_list.itemnames = scale_res_names;
+
+  /* Find current render height in presets */
+  s_scale_res_list.curvalue = 1; /* default to 240p */
+  for (int i = 0; scale_heights[i] != 0; i++) {
+    if ((int)r_scale_height->value == scale_heights[i]) {
+      s_scale_res_list.curvalue = i;
+      break;
+    }
+  }
+
   s_defaults_action.generic.type = MTYPE_ACTION;
   s_defaults_action.generic.name = "reset to default";
   s_defaults_action.generic.x = 0;
@@ -272,6 +358,8 @@ void VID_MenuInit(void)
   Menu_AddItem(&s_video_menu, (void *) &s_uiscale_list);
   Menu_AddItem(&s_video_menu, (void *) &s_fs_box);
   Menu_AddItem(&s_video_menu, (void *) &s_vsync_list);
+  Menu_AddItem(&s_video_menu, (void *) &s_scale_list);
+  Menu_AddItem(&s_video_menu, (void *) &s_scale_res_list);
   Menu_AddItem(&s_video_menu, (void *) &s_defaults_action);
   Menu_AddItem(&s_video_menu, (void *) &s_apply_action);
 

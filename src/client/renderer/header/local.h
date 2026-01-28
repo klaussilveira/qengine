@@ -483,6 +483,9 @@ extern cvar_t *r_speeds;
 extern cvar_t *r_lightlevel;
 extern cvar_t *r_modulate;
 extern cvar_t *r_vsync;
+extern cvar_t *r_scale;
+extern cvar_t *r_scale_width;
+extern cvar_t *r_scale_height;
 
 extern cvar_t *vid_fullscreen;
 extern cvar_t *vid_gamma;
