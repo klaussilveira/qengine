@@ -100,13 +100,13 @@ int Hunk_End(void)
   if (new_size > old_size) {
     n = 0; /* error */
   } else if (new_size < old_size) {
-    unmap_base = (caddr_t)(membase + new_size);
+    unmap_base = (caddr_t) (membase + new_size);
     unmap_len = old_size - new_size;
     n = munmap(unmap_base, unmap_len) + membase;
   }
 #else
 #ifndef round_page
-#define round_page(x) (((size_t)(x) + (page_size - 1)) / page_size) * page_size
+#define round_page(x) (((size_t) (x) + (page_size - 1)) / page_size) * page_size
 #endif
 
   size_t old_size = maxhunksize;
@@ -126,7 +126,7 @@ int Hunk_End(void)
   if (new_size > old_size) {
     n = 0; /* error */
   } else if (new_size < old_size) {
-    unmap_base = (caddr_t)(membase + new_size);
+    unmap_base = (caddr_t) (membase + new_size);
     unmap_len = old_size - new_size;
     n = munmap(unmap_base, unmap_len) + membase;
   }

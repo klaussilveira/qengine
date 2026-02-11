@@ -386,10 +386,12 @@ void ThreadSetDefault(void)
 }
 
 void ThreadLock(void)
-{}
+{
+}
 
 void ThreadUnlock(void)
-{}
+{
+}
 
 /*
 =============

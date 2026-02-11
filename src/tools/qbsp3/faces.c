@@ -708,7 +708,7 @@ winding_t *TryMergeWinding(winding_t *f1, winding_t *f2, vec3_t planenormal)
   dot = DotProduct(delta, normal);
   if (dot > CONTINUOUS_EPSILON)
     return NULL; // not a convex polygon
-  keep1 = (qboolean)(dot < -CONTINUOUS_EPSILON);
+  keep1 = (qboolean) (dot < -CONTINUOUS_EPSILON);
 
   back = f1->p[(i + 2) % f1->numpoints];
   VectorSubtract(back, p2, delta);
@@ -720,7 +720,7 @@ winding_t *TryMergeWinding(winding_t *f1, winding_t *f2, vec3_t planenormal)
   dot = DotProduct(delta, normal);
   if (dot > CONTINUOUS_EPSILON)
     return NULL; // not a convex polygon
-  keep2 = (qboolean)(dot < -CONTINUOUS_EPSILON);
+  keep2 = (qboolean) (dot < -CONTINUOUS_EPSILON);
 
   //
   // build the new polygon

@@ -65,7 +65,8 @@ static qboolean CompareAttributes(char *path, char *name, unsigned musthave, uns
 }
 
 void Sys_Init(void)
-{}
+{
+}
 
 long long Sys_Microseconds(void)
 {

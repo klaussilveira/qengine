@@ -59,25 +59,9 @@ static menulist_s s_dither_list;
 static menuaction_s s_defaults_action;
 static menuaction_s s_apply_action;
 
-static int scale_heights[] = {
-  200,
-  240,
-  400,
-  480,
-  600,
-  720,
-  0
-};
+static int scale_heights[] = {200, 240, 400, 480, 600, 720, 0};
 
-static const char *scale_res_names[] = {
-  "200p (1x)",
-  "240p",
-  "400p (2x)",
-  "480p",
-  "600p (3x)",
-  "720p",
-  0
-};
+static const char *scale_res_names[] = {"200p (1x)", "240p", "400p (2x)", "480p", "600p (3x)", "720p", 0};
 
 static int GetCustomValue(menulist_s *list)
 {
@@ -170,7 +154,7 @@ static void onApplyChanges()
     /* Calculate width from desktop aspect ratio, round to multiple of 4 */
     width = (height * desk_w / desk_h + 2) & ~3;
 
-    if ((int)r_scale_width->value != width || (int)r_scale_height->value != height) {
+    if ((int) r_scale_width->value != width || (int) r_scale_height->value != height) {
       Cvar_SetValue("r_scale_width", width);
       Cvar_SetValue("r_scale_height", height);
       restart = true;
@@ -342,7 +326,7 @@ void VID_MenuInit(void)
   /* Find current render height in presets */
   s_scale_res_list.curvalue = 1; /* default to 240p */
   for (int i = 0; scale_heights[i] != 0; i++) {
-    if ((int)r_scale_height->value == scale_heights[i]) {
+    if ((int) r_scale_height->value == scale_heights[i]) {
       s_scale_res_list.curvalue = i;
       break;
     }

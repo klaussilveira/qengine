@@ -529,11 +529,11 @@ void R_PolysetDrawSpans8_33(spanpackage_t *pspanpackage)
         } while (--lcount);
       } else {
         // Dithered rendering
-        pixel_t *skin = (pixel_t *)r_affinetridesc.pskin;
+        pixel_t *skin = (pixel_t *) r_affinetridesc.pskin;
         const int skinw = r_affinetridesc.skinwidth;
         const int skinh = r_affinetridesc.skinheight;
 
-        int pixelIndex0 = (int)(lpdest - d_viewbuffer);
+        int pixelIndex0 = (int) (lpdest - d_viewbuffer);
         int py = pixelIndex0 / r_screenwidth;
         int px = pixelIndex0 - py * r_screenwidth;
 
@@ -549,10 +549,14 @@ void R_PolysetDrawSpans8_33(spanpackage_t *pspanpackage)
             int idiths = s_int + ((lsfrac + r_ditherkernel[Y][X][0]) >> 16);
             int iditht = t_int + ((ltfrac + r_ditherkernel[Y][X][1]) >> 16);
 
-            if (idiths < 0) idiths = 0;
-            else if (idiths >= skinw) idiths = skinw - 1;
-            if (iditht < 0) iditht = 0;
-            else if (iditht >= skinh) iditht = skinh - 1;
+            if (idiths < 0)
+              idiths = 0;
+            else if (idiths >= skinw)
+              idiths = skinw - 1;
+            if (iditht < 0)
+              iditht = 0;
+            else if (iditht >= skinh)
+              iditht = skinh - 1;
 
             pixel_t texel = skin[iditht * skinw + idiths];
             int temp = vid_colormap[texel + (llight & 0xFF00)];
@@ -672,11 +676,11 @@ void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
         } while (--lcount);
       } else {
         // Dithered rendering
-        pixel_t *skin = (pixel_t *)r_affinetridesc.pskin;
+        pixel_t *skin = (pixel_t *) r_affinetridesc.pskin;
         const int skinw = r_affinetridesc.skinwidth;
         const int skinh = r_affinetridesc.skinheight;
 
-        int pixelIndex0 = (int)(lpdest - d_viewbuffer);
+        int pixelIndex0 = (int) (lpdest - d_viewbuffer);
         int py = pixelIndex0 / r_screenwidth;
         int px = pixelIndex0 - py * r_screenwidth;
 
@@ -692,10 +696,14 @@ void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
             int idiths = s_int + ((lsfrac + r_ditherkernel[Y][X][0]) >> 16);
             int iditht = t_int + ((ltfrac + r_ditherkernel[Y][X][1]) >> 16);
 
-            if (idiths < 0) idiths = 0;
-            else if (idiths >= skinw) idiths = skinw - 1;
-            if (iditht < 0) iditht = 0;
-            else if (iditht >= skinh) iditht = skinh - 1;
+            if (idiths < 0)
+              idiths = 0;
+            else if (idiths >= skinw)
+              idiths = skinw - 1;
+            if (iditht < 0)
+              iditht = 0;
+            else if (iditht >= skinh)
+              iditht = skinh - 1;
 
             pixel_t texel = skin[iditht * skinw + idiths];
             int temp = vid_colormap[texel + (llight & 0xFF00)];
@@ -820,12 +828,12 @@ void R_PolysetDrawSpans8_Opaque(spanpackage_t *pspanpackage)
         } while (--lcount);
       } else {
         // Dithered rendering
-        pixel_t *skin = (pixel_t *)r_affinetridesc.pskin;
-        byte *cmap = (byte *)vid_colormap;
+        pixel_t *skin = (pixel_t *) r_affinetridesc.pskin;
+        byte *cmap = (byte *) vid_colormap;
         const int skinw = r_affinetridesc.skinwidth;
         const int skinh = r_affinetridesc.skinheight;
 
-        int pixelIndex0 = (int)(lpdest - d_viewbuffer);
+        int pixelIndex0 = (int) (lpdest - d_viewbuffer);
         int py = pixelIndex0 / r_screenwidth;
         int px = pixelIndex0 - py * r_screenwidth;
 
@@ -844,10 +852,14 @@ void R_PolysetDrawSpans8_Opaque(spanpackage_t *pspanpackage)
             int iditht = t_int + ((ltfrac + r_ditherkernel[Y][X][1]) >> 16);
 
             // Clamp to skin bounds
-            if (idiths < 0) idiths = 0;
-            else if (idiths >= skinw) idiths = skinw - 1;
-            if (iditht < 0) iditht = 0;
-            else if (iditht >= skinh) iditht = skinh - 1;
+            if (idiths < 0)
+              idiths = 0;
+            else if (idiths >= skinw)
+              idiths = skinw - 1;
+            if (iditht < 0)
+              iditht = 0;
+            else if (iditht >= skinh)
+              iditht = skinh - 1;
 
             // Fetch texel + light
             pixel_t texel = skin[iditht * skinw + idiths];

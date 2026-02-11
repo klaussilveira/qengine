@@ -3,7 +3,7 @@
 
 static SDL_Window *window = NULL;
 static SDL_Surface *surface = NULL;
-static SDL_Surface *surface_indexed = NULL;  // 8-bit indexed source surface
+static SDL_Surface *surface_indexed = NULL; // 8-bit indexed source surface
 static SDL_Texture *texture = NULL;
 static SDL_Texture *texture_upscaled = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -66,8 +66,10 @@ static void CreateUpscaledTexture(void)
   w_upscale = (w + render_width - 1) / render_width;
   h_upscale = (h + render_height - 1) / render_height;
 
-  if (w_upscale < 1) w_upscale = 1;
-  if (h_upscale < 1) h_upscale = 1;
+  if (w_upscale < 1)
+    w_upscale = 1;
+  if (h_upscale < 1)
+    h_upscale = 1;
 
   // Check texture size limits
   SDL_RendererInfo info;
@@ -85,22 +87,19 @@ static void CreateUpscaledTexture(void)
   }
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-  texture_upscaled = SDL_CreateTexture(renderer,
-                                       SDL_PIXELFORMAT_ARGB8888,
-                                       SDL_TEXTUREACCESS_TARGET,
-                                       w_upscale * render_width,
-                                       h_upscale * render_height);
+  texture_upscaled = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET,
+                                       w_upscale * render_width, h_upscale * render_height);
 
   if (texture_upscaled == NULL) {
     Com_Printf("Failed to create upscaled texture: %s\n", SDL_GetError());
   } else {
-    Com_Printf("Created upscaled texture: %dx%d (scale %dx%d)\n",
-               w_upscale * render_width, h_upscale * render_height,
+    Com_Printf("Created upscaled texture: %dx%d (scale %dx%d)\n", w_upscale * render_width, h_upscale * render_height,
                w_upscale, h_upscale);
   }
 }
 
-qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, int win_height, int rend_width, int rend_height)
+qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, int win_height, int rend_width,
+                           int rend_height)
 {
   Uint32 Rmask, Gmask, Bmask, Amask;
   Uint32 flags = SDL_SWSURFACE;
@@ -130,7 +129,8 @@ qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, i
   }
 
   if (vsync) {
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
+    renderer = SDL_CreateRenderer(window, -1,
+                                  SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
   } else {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
   }
@@ -149,7 +149,8 @@ qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, i
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
   surface = SDL_CreateRGBSurface(0, render_width, render_height, bpp, Rmask, Gmask, Bmask, Amask);
   surface_indexed = SDL_CreateRGBSurface(0, render_width, render_height, 8, 0, 0, 0, 0);
-  texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, render_width, render_height);
+  texture =
+      SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, render_width, render_height);
 
   // Create the upscaled texture for integer scaling
   CreateUpscaledTexture();
@@ -229,9 +230,7 @@ void gfx_update(swstate_t sw_state, viddef_t vid)
   SDL_SetPaletteColors(surface_indexed->format->palette, colors, 0, 256);
 
   for (i = 0; i < vid.height; i++) {
-    memcpy((Uint8 *)surface_indexed->pixels + i * surface_indexed->pitch,
-           vid_buffer + i * vid.width,
-           vid.width);
+    memcpy((Uint8 *) surface_indexed->pixels + i * surface_indexed->pitch, vid_buffer + i * vid.width, vid.width);
   }
 
   SDL_BlitSurface(surface_indexed, NULL, surface, NULL);
@@ -331,4 +330,5 @@ int gfx_get_refresh_rate()
 }
 
 void gfx_reset_refresh_rate()
-{}
+{
+}

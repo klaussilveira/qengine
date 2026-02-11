@@ -158,11 +158,9 @@ cvar_t *r_udither;
  * 32768 / 65536 = 0.50
  * 49152 / 65536 = 0.75
  */
-#define FIXED16(x) ((int)((x) * 65536.0f))
-const int r_ditherkernel[2][2][2] = {
-    {{FIXED16(0.25f), 0}, {FIXED16(0.50f), FIXED16(0.75f)}},
-    {{FIXED16(0.75f), FIXED16(0.50f)}, {0, FIXED16(0.25f)}}
-};
+#define FIXED16(x) ((int) ((x) *65536.0f))
+const int r_ditherkernel[2][2][2] = {{{FIXED16(0.25f), 0}, {FIXED16(0.50f), FIXED16(0.75f)}},
+                                     {{FIXED16(0.75f), FIXED16(0.50f)}, {0, FIXED16(0.25f)}}};
 
 cvar_t *r_speeds;
 cvar_t *r_lightlevel; // FIXME HACK
@@ -502,7 +500,8 @@ void R_MarkLeaves(void)
 ** IMPLEMENT THIS!
 */
 void R_DrawNullModel(void)
-{}
+{
+}
 
 /*
 =============
@@ -1060,8 +1059,8 @@ void RE_BeginFrame(float camera_separation)
     sw_overbrightbits->modified = false;
   }
 
-  while (r_mode->modified || vid_fullscreen->modified || r_vsync->modified ||
-         r_scale->modified || r_scale_width->modified || r_scale_height->modified) {
+  while (r_mode->modified || vid_fullscreen->modified || r_vsync->modified || r_scale->modified ||
+         r_scale_width->modified || r_scale_height->modified) {
     rserr_t err;
     int win_width, win_height;
 
@@ -1433,15 +1432,17 @@ static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheigh
 
   // Determine if we should scale or not
   if (r_scale->value > 0) {
-    render_width = (int)r_scale_width->value;
-    render_height = (int)r_scale_height->value;
+    render_width = (int) r_scale_width->value;
+    render_height = (int) r_scale_height->value;
 
     // Set a minimum dimension
-    if (render_width < 320) render_width = 320;
-    if (render_height < 200) render_height = 200;
+    if (render_width < 320)
+      render_width = 320;
+    if (render_height < 200)
+      render_height = 200;
 
-    R_Printf(PRINT_ALL, "Integer scaling: rendering at %dx%d, window at %dx%d\n",
-             render_width, render_height, win_width, win_height);
+    R_Printf(PRINT_ALL, "Integer scaling: rendering at %dx%d, window at %dx%d\n", render_width, render_height,
+             win_width, win_height);
   } else {
     render_width = win_width;
     render_height = win_height;

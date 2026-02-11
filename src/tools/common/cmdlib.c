@@ -97,7 +97,8 @@ void ExpandWildcards(int *argc, char ***argv)
 #else
 
 void ExpandWildcards(int *argc, char ***argv)
-{}
+{
+}
 
 #endif
 

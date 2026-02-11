@@ -7,7 +7,8 @@
 
 qboolean gfx_init();
 void gfx_get_desktop_size(int *width, int *height);
-qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, int win_height, int render_width, int render_height);
+qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, int win_height, int render_width,
+                           int render_height);
 void gfx_window_grab_input(qboolean grab);
 qboolean gfx_update_fullscreen(qboolean fullscreen);
 void gfx_update(swstate_t sw_state, viddef_t vid);

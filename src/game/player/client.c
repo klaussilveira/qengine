@@ -85,12 +85,14 @@ void SP_info_player_coop(edict_t *self)
  * roll as well as yaw.  'pitch yaw roll'
  */
 void SP_info_player_intermission(void)
-{}
+{
+}
 
 /* ======================================================================= */
 
 void player_pain(edict_t *self, edict_t *other, float kick, int damage)
-{}
+{
+}
 
 qboolean IsFemale(edict_t *ent)
 {

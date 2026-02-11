@@ -171,5 +171,6 @@ void Sys_SetupFPU(void)
 
 #else
 void Sys_SetupFPU(void)
-{}
+{
+}
 #endif

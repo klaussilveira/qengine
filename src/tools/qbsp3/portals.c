@@ -659,7 +659,7 @@ qboolean FloodEntities(tree_t *tree)
     qprintf("entity reached from outside -- no filling\n");
   }
 
-  return (qboolean)(inside && !tree->outside_node.occupied);
+  return (qboolean) (inside && !tree->outside_node.occupied);
 }
 
 /*
