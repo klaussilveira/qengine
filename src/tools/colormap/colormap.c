@@ -6,7 +6,7 @@
 
 unsigned char *cmap, *pal;
 
-pcxsave(unsigned char *fname)
+int pcxsave(unsigned char *fname)
 {
   short tavu1, tavu2, c, oc, tmp;
   long x, y;

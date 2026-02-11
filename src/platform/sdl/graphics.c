@@ -3,6 +3,7 @@
 
 static SDL_Window *window = NULL;
 static SDL_Surface *surface = NULL;
+static SDL_Surface *surface_indexed = NULL;  // 8-bit indexed source surface
 static SDL_Texture *texture = NULL;
 static SDL_Texture *texture_upscaled = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -139,9 +140,15 @@ qboolean gfx_create_window(qboolean fullscreen, qboolean vsync, int win_width, i
     return false;
   }
 
+  // Clear to black until it loads
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+  SDL_RenderPresent(renderer);
+
   // Surface and texture render resolution (not window)
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
   surface = SDL_CreateRGBSurface(0, render_width, render_height, bpp, Rmask, Gmask, Bmask, Amask);
+  surface_indexed = SDL_CreateRGBSurface(0, render_width, render_height, 8, 0, 0, 0, 0);
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, render_width, render_height);
 
   // Create the upscaled texture for integer scaling
@@ -208,27 +215,26 @@ qboolean gfx_update_fullscreen(qboolean fullscreen)
 
 void gfx_update(swstate_t sw_state, viddef_t vid)
 {
-  int y, x, i;
-  const unsigned char *pallete = sw_state.currentpalette;
-  Uint32 pallete_colors[256];
+  int i;
+  const unsigned char *palette = sw_state.currentpalette;
+  SDL_Color colors[256];
 
+  // Set up palette for indexed surface
   for (i = 0; i < 256; i++) {
-    pallete_colors[i] = SDL_MapRGB(surface->format, pallete[i * 4 + 0], // red
-                                   pallete[i * 4 + 1],                  // green
-                                   pallete[i * 4 + 2]                   // blue
-    );
+    colors[i].r = palette[i * 4 + 0];
+    colors[i].g = palette[i * 4 + 1];
+    colors[i].b = palette[i * 4 + 2];
+    colors[i].a = 255;
+  }
+  SDL_SetPaletteColors(surface_indexed->format->palette, colors, 0, 256);
+
+  for (i = 0; i < vid.height; i++) {
+    memcpy((Uint8 *)surface_indexed->pixels + i * surface_indexed->pitch,
+           vid_buffer + i * vid.width,
+           vid.width);
   }
 
-  // Convert 8-bit indexed to ARGB8888
-  Uint32 *pixels = (Uint32 *) surface->pixels;
-  for (y = 0; y < vid.height; y++) {
-    for (x = 0; x < vid.width; x++) {
-      int buffer_pos = y * vid.width + x;
-      Uint32 color = pallete_colors[vid_buffer[buffer_pos]];
-      pixels[y * surface->pitch / sizeof(Uint32) + x] = color;
-    }
-  }
-
+  SDL_BlitSurface(surface_indexed, NULL, surface, NULL);
   SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
   SDL_RenderClear(renderer);
 
@@ -277,6 +283,12 @@ void gfx_free()
   }
 
   surface = NULL;
+
+  if (surface_indexed) {
+    SDL_FreeSurface(surface_indexed);
+  }
+
+  surface_indexed = NULL;
 
   if (renderer) {
     SDL_DestroyRenderer(renderer);
