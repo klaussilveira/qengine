@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <dirent.h>

@@ -20,7 +20,7 @@
 
 #include <signal.h>
 
-#ifdef __linux__
+#ifdef __GLIBC__
 
 #include <execinfo.h>
 
@@ -28,7 +28,7 @@
 
 #include "../../common/header/common.h"
 
-#ifdef __linux__
+#ifdef __GLIBC__
 
 void printBacktrace(int sig)
 {

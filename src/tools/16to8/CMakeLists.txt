@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.4...4.1.2)
 project(16to8)
 
 set(PROJECT_SOURCES 16to8.c)

@@ -1,8 +1,9 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.4...4.1.2)
 project(qengine VERSION 0.1.0)
 
 option(BUILD_TOOLS "Build tools" ON)
 option(BUILD_SDL "Build SDL platform" ON)
+option(VENDOR_SDL "Vendor SDL library" ON)
 option(BUILD_DOCS "Build documentation" OFF)
 
 add_definitions(-DENGINE_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
@@ -17,12 +18,11 @@ set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 set(PROJECT_INCLUDE_DIRS)
 set(PROJECT_LINK_DIRS)
 set(COMMON_LINKER_FLAGS)
-set(CLIENT_LINKER_FLAGS)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-  list(APPEND COMMON_LINKER_FLAGS "-lm -static-libgcc")
+  list(APPEND COMMON_LINKER_FLAGS -lm -static-libgcc)
 else()
-  list(APPEND COMMON_LINKER_FLAGS "-lm -rdynamic")
+  list(APPEND COMMON_LINKER_FLAGS -lm -rdynamic)
 endif()
 
 # If we're building with gcc for i386 let's define -ffloat-store. This helps the old and crappy x87 FPU to produce
@@ -85,10 +85,11 @@ endif()
 
 # Dependencies
 if(BUILD_SDL)
-  add_subdirectory(vendor/SDL2-2.0.22)
-
-  list(APPEND PROJECT_INCLUDE_DIRS vendor/SDL2-2.0.22/include)
-  list(APPEND COMMON_LINKER_FLAGS SDL2)
+  if(VENDOR_SDL)
+    add_subdirectory(vendor/SDL2-2.0.22 EXCLUDE_FROM_ALL)
+  else()
+    find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
+  endif()
 
   set(CLIENT_PLATFORM_SOURCE ${CLIENT_PLATFORM_SOURCE} ${SDL_SOURCE})
 endif()
@@ -264,7 +265,10 @@ add_executable(client
                ${GAME_SOURCE}
                ${GAME_HEADER})
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-target_link_libraries(client ${COMMON_LINKER_FLAGS} ${CLIENT_LINKER_FLAGS})
+target_link_options(client PRIVATE ${COMMON_LINKER_FLAGS})
+if(BUILD_SDL)
+  target_link_libraries(client PRIVATE SDL2::SDL2)
+endif()
 
 # Dedicated Server
 add_executable(server
@@ -279,7 +283,7 @@ set_target_properties(server
                                  "DEDICATED_ONLY"
                                  RUNTIME_OUTPUT_DIRECTORY
                                  ${CMAKE_BINARY_DIR})
-target_link_libraries(server ${COMMON_LINKER_FLAGS})
+target_link_options(server PRIVATE ${COMMON_LINKER_FLAGS})
 
 if(BUILD_TOOLS)
   add_subdirectory(src/tools)
