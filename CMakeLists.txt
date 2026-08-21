@@ -6,6 +6,10 @@ option(BUILD_SDL "Build SDL platform" ON)
 option(VENDOR_SDL "Vendor SDL library" ON)
 option(BUILD_DOCS "Build documentation" OFF)
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 add_definitions(-DENGINE_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fno-strict-aliasing -fwrapv -fcommon")
 string(REPLACE "-O3"
@@ -86,7 +90,7 @@ endif()
 # Dependencies
 if(BUILD_SDL)
   if(VENDOR_SDL)
-    add_subdirectory(vendor/SDL2-2.0.22 EXCLUDE_FROM_ALL)
+    add_subdirectory(vendor/SDL2-2.32.10 EXCLUDE_FROM_ALL)
   else()
     find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
   endif()
@@ -266,6 +270,7 @@ add_executable(client
                ${GAME_HEADER})
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 target_link_options(client PRIVATE ${COMMON_LINKER_FLAGS})
+target_link_libraries(client PRIVATE m)
 if(BUILD_SDL)
   target_link_libraries(client PRIVATE SDL2::SDL2)
 endif()
@@ -284,6 +289,7 @@ set_target_properties(server
                                  RUNTIME_OUTPUT_DIRECTORY
                                  ${CMAKE_BINARY_DIR})
 target_link_options(server PRIVATE ${COMMON_LINKER_FLAGS})
+target_link_libraries(server PRIVATE m)
 
 if(BUILD_TOOLS)
   add_subdirectory(src/tools)
