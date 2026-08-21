@@ -146,7 +146,7 @@ RunThreadsOn
 */
 void RunThreadsOn(int workcnt, qboolean showpacifier, void (*func)(int))
 {
-  int threadid[MAX_THREADS];
+  DWORD threadid[MAX_THREADS];
   HANDLE threadhandle[MAX_THREADS];
   int i;
   int start, end;

@@ -569,6 +569,10 @@ void Slider_DoSlide(menuslider_s *s, int dir)
 }
 
 #define SLIDER_RANGE 10
+#define SLIDER_LEFT 128
+#define SLIDER_BODY 129
+#define SLIDER_RIGHT 130
+#define SLIDER_THUMB 131
 
 void Slider_Draw(menuslider_s *s)
 {
@@ -589,18 +593,18 @@ void Slider_Draw(menuslider_s *s)
   }
 
   Draw_CharScaled(s->generic.x + (s->generic.parent->x + RCOLUMN_OFFSET * scale),
-                  (s->generic.y + s->generic.parent->y) * scale, 128, scale);
+                  (s->generic.y + s->generic.parent->y) * scale, SLIDER_LEFT, scale);
 
-  for (i = 0; i < SLIDER_RANGE * scale; i++) {
-    Draw_CharScaled((RCOLUMN_OFFSET * scale + s->generic.x + i * 8 + s->generic.parent->x + 8),
-                    (s->generic.y + s->generic.parent->y) * scale, 129, scale);
+  for (i = 0; i < SLIDER_RANGE; i++) {
+    Draw_CharScaled((RCOLUMN_OFFSET * scale + s->generic.x + i * 8 * scale + s->generic.parent->x + 8 * scale),
+                    (s->generic.y + s->generic.parent->y) * scale, SLIDER_BODY, scale);
   }
 
-  Draw_CharScaled((RCOLUMN_OFFSET * scale + s->generic.x + i * 8 + s->generic.parent->x + 8),
-                  (s->generic.y + s->generic.parent->y) * scale, 130, scale);
-  Draw_CharScaled(((int) (8 + RCOLUMN_OFFSET * scale + s->generic.parent->x + s->generic.x +
-                          (SLIDER_RANGE * scale - 1) * 8 * s->range)),
-                  (s->generic.y + s->generic.parent->y) * scale, 131, scale);
+  Draw_CharScaled((RCOLUMN_OFFSET * scale + s->generic.x + i * 8 * scale + s->generic.parent->x + 8 * scale),
+                  (s->generic.y + s->generic.parent->y) * scale, SLIDER_RIGHT, scale);
+  Draw_CharScaled(((int) (8 * scale + RCOLUMN_OFFSET * scale + s->generic.parent->x + s->generic.x +
+                          (SLIDER_RANGE - 1) * 8 * scale * s->range)),
+                  (s->generic.y + s->generic.parent->y) * scale, SLIDER_THUMB, scale);
 }
 
 void SpinControl_DoSlide(menulist_s *s, int dir)

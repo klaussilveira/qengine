@@ -407,6 +407,8 @@ void input_update()
         Key_MarkAllUp();
       } else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
         gfx_reset_refresh_rate();
+      } else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+        RE_WindowResized(event.window.data1, event.window.data2);
       }
 
       break;
@@ -419,6 +421,7 @@ void input_update()
   }
 
   /* Grab and ungrab the mouse if the* console or the menu is opened */
-  want_grab = (vid_fullscreen->value || in_grab->value == 1 || (in_grab->value == 2 && windowed_mouse->value));
+  want_grab = gfx_window_has_focus() &&
+              (vid_fullscreen->value || in_grab->value == 1 || (in_grab->value == 2 && windowed_mouse->value));
   gfx_window_grab_input(want_grab);
 }

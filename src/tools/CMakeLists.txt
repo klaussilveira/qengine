@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.4...4.1.2)
 project(tools)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/tools)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tools)
 
 set(COMMON_SOURCES
         ../common/bmplib.c
@@ -28,3 +28,4 @@ add_subdirectory(pcx2wal)
 add_subdirectory(pcx2pal)
 add_subdirectory(16to8)
 add_subdirectory(colormap)
+add_subdirectory(pak)

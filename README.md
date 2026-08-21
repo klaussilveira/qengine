@@ -61,6 +61,16 @@ they require, you can pass `-DBUILD_DOCS=OFF` to cmake.
     $ cmake -DBUILD_DOCS=OFF ..
     $ make
 
+### Cross-compiling for Windows
+Windows binaries are built from Linux with mingw-w64. On Debian and Ubuntu the
+toolchain comes from `gcc-mingw-w64-x86-64` and `g++-mingw-w64-x86-64`.
+
+    $ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64.cmake
+    $ cmake --build build
+
+This creates `client.exe`, `server.exe` and the tools under `build/tools`.
+`SDL2.dll` is copy next to `client.exe` and has to ship with it.
+
 ## Running
 The engine will look for game data in the `assets` folder. You can start from
 scratch, or use the original Quake II game data if you own it.
@@ -83,6 +93,9 @@ Included with the engine there are quite a few useful tools. They are:
 ### UI
 - uigen
 - fontgen
+
+### Packaging
+- pak
 
 ### Compiling maps
     $ tools/qbsp3 assets/maps/sample.map

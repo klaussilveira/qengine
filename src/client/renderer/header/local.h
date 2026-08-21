@@ -69,16 +69,6 @@ typedef unsigned char pixel_t;
 typedef int shift20_t;
 typedef int zvalue_t;
 
-typedef enum
-{
-  rserr_ok,
-
-  rserr_invalid_fullscreen,
-  rserr_invalid_mode,
-
-  rserr_unknown
-} rserr_t;
-
 extern viddef_t vid;
 extern pixel_t *vid_buffer;   // invisible buffer
 extern pixel_t *vid_colormap; // 256 * VID_GRADES size
@@ -137,6 +127,10 @@ extern oldrefdef_t r_refdef;
 
 #define WARP_WIDTH 320
 #define WARP_HEIGHT 240
+
+#define MIN_RENDER_WIDTH 320
+#define MIN_RENDER_HEIGHT 200
+#define MAX_RENDER_SCALE 8
 
 #define PARTICLE_Z_CLIP 8.0
 
@@ -275,6 +269,7 @@ typedef struct surfcache_s
   struct surfcache_s **owner; // NULL is an empty chunk of memory
   int lightadj[MAXLIGHTMAPS]; // checked for strobe flush
   int dlight;
+  int lightmap_smooth;
   int size; // including header
   unsigned width;
   unsigned height; // DEBUG only needed for debug
@@ -414,6 +409,7 @@ extern zvalue_t *d_pzbuffer;
 extern unsigned int d_zrowbytes, d_zwidth;
 
 extern int d_minmip;
+extern int d_miplevel;
 extern float d_scalemip[3];
 
 //===================================================================
@@ -466,7 +462,6 @@ extern cvar_t *sw_maxedges;
 extern cvar_t *sw_maxsurfs;
 extern cvar_t *sw_mipcap;
 extern cvar_t *sw_mipscale;
-extern cvar_t *r_mode;
 extern cvar_t *sw_reportsurfout;
 extern cvar_t *sw_reportedgeout;
 extern cvar_t *sw_stipplealpha;
@@ -483,15 +478,19 @@ extern cvar_t *r_speeds;
 extern cvar_t *r_lightlevel;
 extern cvar_t *r_modulate;
 extern cvar_t *r_vsync;
-extern cvar_t *r_scale;
-extern cvar_t *r_scale_width;
-extern cvar_t *r_scale_height;
 extern cvar_t *r_udither;
+extern cvar_t *r_lightmap_smooth;
+extern cvar_t *r_surface_threads;
 
 extern const int r_ditherkernel[2][2][2];
 
 extern cvar_t *vid_fullscreen;
 extern cvar_t *vid_gamma;
+extern cvar_t *vid_width;
+extern cvar_t *vid_height;
+extern cvar_t *vid_render_scale;
+extern cvar_t *vid_adaptive_scale;
+extern cvar_t *vid_refresh_rate;
 
 extern clipplane_t view_clipplanes[4];
 extern int *pfrustum_indexes[4];
@@ -782,7 +781,6 @@ void R_InitSkyBox(void);
 typedef struct swstate_s
 {
   qboolean fullscreen;
-  int prev_mode; // last valid SW mode
 
   unsigned char gammatable[256];
   unsigned char currentpalette[1024];
@@ -808,6 +806,6 @@ void RE_SetPalette(const unsigned char *palette);
 
 void SWimp_Shutdown(void);
 
-rserr_t SWimp_SetMode(int *pwidth, int *pheight, int mode, qboolean fullscreen);
+void RE_WindowResized(int width, int height);
 
 #endif

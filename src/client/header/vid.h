@@ -54,6 +54,4 @@ const char *VID_MenuKey(int);
 
 void VID_NewWindow(int width, int height);
 
-qboolean VID_GetModeInfo(int *width, int *height, int mode);
-
 #endif

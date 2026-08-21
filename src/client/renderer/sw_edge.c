@@ -57,7 +57,7 @@ edge_t edge_sentinel;
 
 float fv;
 
-static int miplevel;
+int d_miplevel;
 
 float scale_for_mip;
 int ubasestep, errorterm, erroradjustup, erroradjustdown;
@@ -706,7 +706,7 @@ void D_CalcGradients(msurface_t *pface)
   vec3_t p_saxis, p_taxis;
   float t;
 
-  mipscale = 1.0 / (float) (1 << miplevel);
+  mipscale = 1.0 / (float) (1 << d_miplevel);
 
   TransformVector(pface->texinfo->vecs[0], p_saxis);
   TransformVector(pface->texinfo->vecs[1], p_taxis);
@@ -725,9 +725,9 @@ void D_CalcGradients(msurface_t *pface)
   VectorScale(transformed_modelorg, mipscale, p_temp1);
 
   t = 0x10000 * mipscale;
-  sadjust = ((int) (DotProduct(p_temp1, p_saxis) * 0x10000 + 0.5)) - ((pface->texturemins[0] << 16) >> miplevel) +
+  sadjust = ((int) (DotProduct(p_temp1, p_saxis) * 0x10000 + 0.5)) - ((pface->texturemins[0] << 16) >> d_miplevel) +
             pface->texinfo->vecs[0][3] * t;
-  tadjust = ((int) (DotProduct(p_temp1, p_taxis) * 0x10000 + 0.5)) - ((pface->texturemins[1] << 16) >> miplevel) +
+  tadjust = ((int) (DotProduct(p_temp1, p_taxis) * 0x10000 + 0.5)) - ((pface->texturemins[1] << 16) >> d_miplevel) +
             pface->texinfo->vecs[1][3] * t;
 
   // PGM - changing flow speed for non-warping textures.
@@ -742,8 +742,8 @@ void D_CalcGradients(msurface_t *pface)
   //
   // -1 (-epsilon) so we never wander off the edge of the texture
   //
-  bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
-  bbextentt = ((pface->extents[1] << 16) >> miplevel) - 1;
+  bbextents = ((pface->extents[0] << 16) >> d_miplevel) - 1;
+  bbextentt = ((pface->extents[1] << 16) >> d_miplevel) - 1;
 }
 
 /*
@@ -777,7 +777,7 @@ void D_TurbulentSurf(surf_t *s)
   d_ziorigin = s->d_ziorigin;
 
   pface = s->msurf;
-  miplevel = 0;
+  d_miplevel = 0;
   cacheblock = pface->texinfo->image->pixels[0];
   cachewidth = 64;
 
@@ -830,7 +830,7 @@ D_SkySurf
 void D_SkySurf(surf_t *s)
 {
   pface = s->msurf;
-  miplevel = 0;
+  d_miplevel = 0;
   if (!pface->texinfo->image)
     return;
   cacheblock = pface->texinfo->image->pixels[0];
@@ -880,10 +880,10 @@ void D_SolidSurf(surf_t *s)
     currententity = &r_worldentity;
 
   pface = s->msurf;
-  miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
+  d_miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
 
   // FIXME: make this passed in to D_CacheSurface
-  pcurrentcache = D_CacheSurface(pface, miplevel);
+  pcurrentcache = D_CacheSurface(pface, d_miplevel);
 
   cacheblock = (pixel_t *) pcurrentcache->data;
   cachewidth = pcurrentcache->width;

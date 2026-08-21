@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdint.h>
 #include "header/local.h"
 #include "../../platform/graphics.h"
+#include "../../platform/thread.h"
 
 viddef_t vid;
 pixel_t *vid_buffer = NULL;
@@ -121,7 +122,6 @@ cvar_t *sw_drawflat;
 cvar_t *sw_draworder;
 cvar_t *sw_maxedges;
 cvar_t *sw_maxsurfs;
-cvar_t *r_mode;
 cvar_t *sw_reportedgeout;
 cvar_t *sw_reportsurfout;
 cvar_t *sw_stipplealpha;
@@ -137,36 +137,38 @@ cvar_t *r_lerpmodels;
 cvar_t *r_novis;
 cvar_t *r_modulate;
 cvar_t *r_vsync;
-cvar_t *r_customwidth;
-cvar_t *r_customheight;
 
-cvar_t *r_scale;
-cvar_t *r_scale_width;
-cvar_t *r_scale_height;
+cvar_t *vid_width;
+cvar_t *vid_height;
+cvar_t *vid_render_scale;
+cvar_t *vid_adaptive_scale;
+cvar_t *vid_refresh_rate;
 
 cvar_t *r_udither;
+cvar_t *r_lightmap_smooth;
+cvar_t *r_surface_threads;
 
 /*
  * Unreal-style dither kernel (Tim Sweeney's technique)
  * From: https://www.flipcode.com/archives/Texturing_As_In_Unreal.shtml
  *
- * (Y&1)==0 | u+=.25, v+=.00 | u+=.50, v+=.75
- * (Y&1)==1 | u+=.75, v+=.50 | u+=.00, v+=.25
+ * (Y&1)==0 | u-=.25, v-=.50 | u-=.50, v+=.00
+ * (Y&1)==1 | u+=.00, v+=.25 | u+=.25, v-=.25
  *
  * Values in 16.16 fixed-point:
  * 16384 / 65536 = 0.25
  * 32768 / 65536 = 0.50
- * 49152 / 65536 = 0.75
  */
 #define FIXED16(x) ((int) ((x) *65536.0f))
-const int r_ditherkernel[2][2][2] = {{{FIXED16(0.25f), 0}, {FIXED16(0.50f), FIXED16(0.75f)}},
-                                     {{FIXED16(0.75f), FIXED16(0.50f)}, {0, FIXED16(0.25f)}}};
+const int r_ditherkernel[2][2][2] = {{{-FIXED16(0.25f), -FIXED16(0.50f)}, {-FIXED16(0.50f), 0}},
+                                     {{0, FIXED16(0.25f)}, {FIXED16(0.25f), -FIXED16(0.25f)}}};
 
 cvar_t *r_speeds;
 cvar_t *r_lightlevel; // FIXME HACK
 
 cvar_t *vid_fullscreen;
 cvar_t *vid_gamma;
+extern cvar_t *vid_maxfps;
 
 // PGM
 cvar_t *r_lockpvs;
@@ -285,7 +287,6 @@ void R_Register(void)
   sw_surfcacheoverride = Cvar_Get("sw_surfcacheoverride", "0", 0);
   sw_waterwarp = Cvar_Get("sw_waterwarp", "1", 0);
   sw_overbrightbits = Cvar_Get("sw_overbrightbits", "1.0", CVAR_ARCHIVE);
-  r_mode = Cvar_Get("r_mode", "0", CVAR_ARCHIVE);
 
   r_lefthand = Cvar_Get("hand", "0", CVAR_USERINFO | CVAR_ARCHIVE);
   r_speeds = Cvar_Get("r_speeds", "0", 0);
@@ -298,14 +299,16 @@ void R_Register(void)
   r_novis = Cvar_Get("r_novis", "0", 0);
   r_modulate = Cvar_Get("r_modulate", "1", CVAR_ARCHIVE);
   r_vsync = Cvar_Get("r_vsync", "1", CVAR_ARCHIVE);
-  r_customwidth = Cvar_Get("r_customwidth", "1024", CVAR_ARCHIVE);
-  r_customheight = Cvar_Get("r_customheight", "768", CVAR_ARCHIVE);
 
-  r_scale = Cvar_Get("r_scale", "0", CVAR_ARCHIVE);
-  r_scale_width = Cvar_Get("r_scale_width", "320", CVAR_ARCHIVE);
-  r_scale_height = Cvar_Get("r_scale_height", "240", CVAR_ARCHIVE);
+  vid_width = Cvar_Get("vid_width", "0", CVAR_ARCHIVE);
+  vid_height = Cvar_Get("vid_height", "0", CVAR_ARCHIVE);
+  vid_render_scale = Cvar_Get("vid_render_scale", "1", CVAR_ARCHIVE);
+  vid_adaptive_scale = Cvar_Get("vid_adaptive_scale", "0", CVAR_ARCHIVE);
+  vid_refresh_rate = Cvar_Get("vid_refresh_rate", "0", CVAR_ARCHIVE);
 
   r_udither = Cvar_Get("r_udither", "0", CVAR_ARCHIVE);
+  r_lightmap_smooth = Cvar_Get("r_lightmap_smooth", "0", CVAR_ARCHIVE);
+  r_surface_threads = Cvar_Get("r_surface_threads", "1", CVAR_ARCHIVE);
 
   vid_fullscreen = Cvar_Get("vid_fullscreen", "0", CVAR_ARCHIVE);
   vid_gamma = Cvar_Get("vid_gamma", "1.0", CVAR_ARCHIVE);
@@ -313,7 +316,6 @@ void R_Register(void)
   Cmd_AddCommand("modellist", Mod_Modellist_f);
   Cmd_AddCommand("imagelist", R_ImageList_f);
 
-  r_mode->modified = true;            // force us to do mode specific stuff later
   vid_gamma->modified = true;         // force us to rebuild the gamma table later
   sw_overbrightbits->modified = true; // force us to rebuild pallete later
 
@@ -355,6 +357,8 @@ qboolean RE_Init(void)
   if (gfx_init() == false)
     return false;
 
+  thread_pool_init();
+
   // create the window
   RE_BeginFrame(0);
   Swap_Init();
@@ -389,6 +393,7 @@ void RE_Shutdown(void)
   R_UnRegister();
   Mod_FreeAll();
   R_ShutdownImages();
+  thread_pool_shutdown();
 
   SWimp_Shutdown();
 }
@@ -1013,32 +1018,49 @@ void RE_RenderFrame(refdef_t *fd)
     R_Printf(PRINT_ALL, "Short roughly %d edges\n", r_outofedges * 2 / 3);
 }
 
-/*
-** R_InitGraphics
-*/
-void R_InitGraphics(int width, int height)
+static int requested_width = -1;
+static int requested_height = -1;
+static int applied_width;
+static int applied_height;
+static int applied_fullscreen = -1;
+static int applied_render_scale;
+static int applied_adaptive_scale;
+static int applied_vsync = -1;
+static int applied_refresh_rate;
+static int effective_render_scale = 1;
+static int adaptive_render_scale = 1;
+static qboolean vid_resizing;
+
+static void SWimp_ApplyChanges(void);
+
+static int R_ClampInt(int value, int minimum, int maximum)
 {
-  vid.width = width;
-  vid.height = height;
-
-  // free z buffer
-  if (d_pzbuffer) {
-    free(d_pzbuffer);
-    d_pzbuffer = NULL;
+  if (value < minimum) {
+    return minimum;
+  }
+  if (value > maximum) {
+    return maximum;
   }
 
-  // free surface cache
-  if (sc_base) {
-    D_FlushCaches();
-    free(sc_base);
-    sc_base = NULL;
+  return value;
+}
+
+/*
+** R_EffectiveScale
+*/
+static int R_EffectiveScale(int width, int height, int requested)
+{
+  int maximum = width / MIN_RENDER_WIDTH;
+  int height_maximum = height / MIN_RENDER_HEIGHT;
+
+  if (height_maximum < maximum) {
+    maximum = height_maximum;
+  }
+  if (maximum < 1) {
+    maximum = 1;
   }
 
-  d_pzbuffer = malloc(vid.width * vid.height * sizeof(zvalue_t));
-
-  R_InitCaches();
-
-  R_GammaCorrectAndSetPalette((const unsigned char *) d_8to24table);
+  return R_ClampInt(requested, 1, maximum);
 }
 
 /*
@@ -1059,49 +1081,16 @@ void RE_BeginFrame(float camera_separation)
     sw_overbrightbits->modified = false;
   }
 
-  while (r_mode->modified || vid_fullscreen->modified || r_vsync->modified || r_scale->modified ||
-         r_scale_width->modified || r_scale_height->modified) {
-    rserr_t err;
-    int win_width, win_height;
+  if (vid_resizing) {
+    return;
+  }
 
-    // Determine window size from mode
-    if (r_mode->value == -1) {
-      win_width = r_customwidth->value;
-      win_height = r_customheight->value;
-    } else {
-      VID_GetModeInfo(&win_width, &win_height, r_mode->value);
-    }
-
-    /*
-    ** if this returns rserr_invalid_fullscreen then it set the mode but not as
-    *a
-    ** fullscreen mode, e.g. 320x200 on a system that doesn't support that res
-    */
-    if ((err = SWimp_SetMode(&win_width, &win_height, r_mode->value, vid_fullscreen->value)) == rserr_ok) {
-      R_InitGraphics(vid.width, vid.height);
-
-      sw_state.prev_mode = r_mode->value;
-      vid_fullscreen->modified = false;
-      r_mode->modified = false;
-      r_vsync->modified = false;
-      r_scale->modified = false;
-      r_scale_width->modified = false;
-      r_scale_height->modified = false;
-    } else {
-      if (err == rserr_invalid_mode) {
-        Cvar_SetValue("r_mode", sw_state.prev_mode);
-        R_Printf(PRINT_ALL, "ref_soft::RE_BeginFrame() - could not set mode\n");
-      } else if (err == rserr_invalid_fullscreen) {
-        R_InitGraphics(vid.width, vid.height);
-
-        Cvar_SetValue("vid_fullscreen", 0);
-        R_Printf(PRINT_ALL, "ref_soft::RE_BeginFrame() - fullscreen "
-                            "unavailable in this mode\n");
-        sw_state.prev_mode = r_mode->value;
-      } else {
-        Com_Error(ERR_FATAL, "ref_soft::RE_BeginFrame() - catastrophic mode change failure\n");
-      }
-    }
+  if (applied_fullscreen < 0 || (int) vid_width->value != requested_width ||
+      (int) vid_height->value != requested_height || (int) vid_fullscreen->value != applied_fullscreen ||
+      (int) vid_render_scale->value != applied_render_scale ||
+      (int) vid_adaptive_scale->value != applied_adaptive_scale || (int) r_vsync->value != applied_vsync ||
+      (int) vid_refresh_rate->value != applied_refresh_rate) {
+    SWimp_ApplyChanges();
   }
 }
 
@@ -1316,8 +1305,19 @@ qboolean RE_IsVsyncActive(void)
   }
 }
 
-static void SWimp_DestroyRender(void)
+static void SWimp_FreeBuffers(void)
 {
+  if (d_pzbuffer) {
+    free(d_pzbuffer);
+  }
+  d_pzbuffer = NULL;
+
+  if (sc_base) {
+    D_FlushCaches();
+    free(sc_base);
+  }
+  sc_base = NULL;
+
   if (vid_buffer) {
     free(vid_buffer);
   }
@@ -1392,8 +1392,6 @@ static void SWimp_DestroyRender(void)
     free(r_warpbuffer);
   }
   r_warpbuffer = NULL;
-
-  gfx_free();
 }
 
 /*
@@ -1403,67 +1401,13 @@ point math used in R_ScanEdges() overflows at width 2048 !!
 char shift_size;
 
 /*
-** SWimp_InitGraphics
-**
-** This initializes the software refresh's implementation specific
-** graphics subsystem.  In the case of Windows it creates DIB or
-** DDRAW surfaces.
+** SWimp_AllocBuffers
 **
 ** The necessary width and height parameters are grabbed from
 ** vid.width and vid.height.
 */
-static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheight)
+static void SWimp_AllocBuffers(void)
 {
-  int win_width = *pwidth;
-  int win_height = *pheight;
-  int render_width, render_height;
-
-  if (gfx_update_fullscreen(fullscreen)) {
-    return true;
-  }
-
-  SWimp_DestroyRender();
-
-  // For fullscreen desktop mode, use native desktop resolution
-  if (fullscreen == 1) {
-    gfx_get_desktop_size(&win_width, &win_height);
-    R_Printf(PRINT_ALL, "Fullscreen desktop: using native resolution %dx%d\n", win_width, win_height);
-  }
-
-  // Determine if we should scale or not
-  if (r_scale->value > 0) {
-    render_width = (int) r_scale_width->value;
-    render_height = (int) r_scale_height->value;
-
-    // Set a minimum dimension
-    if (render_width < 320)
-      render_width = 320;
-    if (render_height < 200)
-      render_height = 200;
-
-    R_Printf(PRINT_ALL, "Integer scaling: rendering at %dx%d, window at %dx%d\n", render_width, render_height,
-             win_width, win_height);
-  } else {
-    render_width = win_width;
-    render_height = win_height;
-  }
-
-  // Set vid dimensions to RENDER resolution (not window)
-  vid.width = render_width;
-  vid.height = render_height;
-
-  // Let the sound and input subsystems know about the new window
-  VID_NewWindow(vid.width, vid.height);
-
-  while (1) {
-    if (!gfx_create_window(fullscreen, r_vsync->value, win_width, win_height, render_width, render_height)) {
-      Sys_Error("Failed to create window: %s\n", gfx_get_error());
-      return false;
-    } else {
-      break;
-    }
-  }
-
   vid_buffer = malloc(vid.height * vid.width * sizeof(pixel_t));
 
   sintable = malloc((vid.width + CYCLE) * sizeof(int));
@@ -1495,9 +1439,281 @@ static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheigh
 
   vid_polygon_spans = malloc(sizeof(espan_t) * (vid.height + 1));
 
+  d_pzbuffer = malloc(vid.width * vid.height * sizeof(zvalue_t));
+
+  R_InitCaches();
+
   memset(sw_state.currentpalette, 0, sizeof(sw_state.currentpalette));
+}
+
+/*
+** R_ResizeBuffers
+*/
+static qboolean R_ResizeBuffers(int width, int height)
+{
+  width = R_ClampInt(width, MIN_RENDER_WIDTH, 16384);
+  height = R_ClampInt(height, MIN_RENDER_HEIGHT, 16384);
+
+  if (vid_buffer && width == vid.width && height == vid.height) {
+    return true;
+  }
+
+  vid_resizing = true;
+
+  SWimp_FreeBuffers();
+
+  vid.width = width;
+  vid.height = height;
+
+  if (!gfx_resize_render_target(width, height)) {
+    vid_resizing = false;
+
+    return false;
+  }
+
+  SWimp_AllocBuffers();
+
+  // Let the sound and input subsystems know about the new window
+  VID_NewWindow(width, height);
+
+  R_GammaCorrectAndSetPalette((const unsigned char *) d_8to24table);
+
+  vid_resizing = false;
 
   return true;
+}
+
+/*
+** R_MigrateLegacyMode
+*/
+static void R_MigrateLegacyMode(void)
+{
+  cvar_t *legacy_mode;
+  cvar_t *legacy_width;
+  cvar_t *legacy_height;
+
+  if (vid_width->value > 0 || vid_height->value > 0) {
+    return;
+  }
+
+  legacy_mode = Cvar_Get("r_mode", "", 0);
+  if (legacy_mode->string[0] == '\0') {
+    return;
+  }
+
+  legacy_width = Cvar_Get("r_customwidth", "0", 0);
+  legacy_height = Cvar_Get("r_customheight", "0", 0);
+
+  if (legacy_width->value >= MIN_RENDER_WIDTH && legacy_height->value >= MIN_RENDER_HEIGHT) {
+    Cvar_SetValue("vid_width", legacy_width->value);
+    Cvar_SetValue("vid_height", legacy_height->value);
+    R_Printf(PRINT_ALL, "Migrated r_customwidth/height %dx%d to vid_width/vid_height\n", (int) legacy_width->value,
+             (int) legacy_height->value);
+  }
+
+  Cvar_Set("r_mode", "");
+}
+
+/*
+** SWimp_ApplyChanges
+*/
+static void SWimp_ApplyChanges(void)
+{
+  int width, height;
+  int fullscreen, scale, vsync, refresh_rate, adaptive_scale;
+  int drawable_width, drawable_height;
+
+  R_MigrateLegacyMode();
+
+  width = requested_width = (int) vid_width->value;
+  height = requested_height = (int) vid_height->value;
+  fullscreen = R_ClampInt((int) vid_fullscreen->value, 0, 2);
+  scale = R_ClampInt((int) vid_render_scale->value, 1, MAX_RENDER_SCALE);
+  vsync = R_ClampInt((int) r_vsync->value, 0, 1);
+  refresh_rate = R_ClampInt((int) vid_refresh_rate->value, 0, 1000);
+  adaptive_scale = R_ClampInt((int) vid_adaptive_scale->value, 0, 1);
+
+  if ((int) vid_fullscreen->value != fullscreen) {
+    Cvar_SetValue("vid_fullscreen", (float) fullscreen);
+  }
+  if ((int) vid_render_scale->value != scale) {
+    Cvar_SetValue("vid_render_scale", (float) scale);
+  }
+  if ((int) r_vsync->value != vsync) {
+    Cvar_SetValue("r_vsync", (float) vsync);
+  }
+  if ((int) vid_refresh_rate->value != refresh_rate) {
+    Cvar_SetValue("vid_refresh_rate", (float) refresh_rate);
+  }
+  if ((int) vid_adaptive_scale->value != adaptive_scale) {
+    Cvar_SetValue("vid_adaptive_scale", (float) adaptive_scale);
+  }
+
+  if (scale != applied_render_scale || adaptive_scale != applied_adaptive_scale) {
+    adaptive_render_scale = scale;
+  }
+
+  if (width <= 0 || height <= 0) {
+    gfx_get_desktop_size(&width, &height);
+
+    if (!fullscreen) {
+      width = width * 3 / 4;
+      height = height * 3 / 4;
+    }
+  }
+
+  width = R_ClampInt(width, MIN_RENDER_WIDTH, 16384);
+  height = R_ClampInt(height, MIN_RENDER_HEIGHT, 16384);
+
+  if (applied_fullscreen < 0) {
+    if (!gfx_create_window(fullscreen, vsync, width, height)) {
+      Sys_Error("Failed to create window: %s\n", gfx_get_error());
+
+      return;
+    }
+
+    applied_vsync = vsync;
+  } else {
+    if (fullscreen == 2 && (refresh_rate != applied_refresh_rate || fullscreen != applied_fullscreen ||
+                            width != applied_width || height != applied_height)) {
+      if (!gfx_set_refresh_rate(refresh_rate, width, height)) {
+        Cvar_SetValue("vid_refresh_rate", (float) applied_refresh_rate);
+        refresh_rate = applied_refresh_rate;
+      }
+    }
+
+    if (fullscreen != applied_fullscreen) {
+      if (!gfx_set_fullscreen(fullscreen)) {
+        Cvar_SetValue("vid_fullscreen", (float) applied_fullscreen);
+        fullscreen = applied_fullscreen;
+      }
+    }
+
+    if (!fullscreen && (width != applied_width || height != applied_height)) {
+      gfx_resize_window(width, height);
+    }
+  }
+
+  gfx_get_drawable_size(&drawable_width, &drawable_height);
+  effective_render_scale = R_EffectiveScale(drawable_width, drawable_height, adaptive_render_scale);
+
+  if (!R_ResizeBuffers(drawable_width / effective_render_scale, drawable_height / effective_render_scale)) {
+    Sys_Error("Failed to create the software framebuffer: %s\n", gfx_get_error());
+
+    return;
+  }
+
+  if (vsync != applied_vsync) {
+    if (!gfx_set_vsync(vsync)) {
+      Cvar_SetValue("r_vsync", (float) applied_vsync);
+      vsync = applied_vsync;
+    }
+  }
+
+  applied_width = width;
+  applied_height = height;
+  applied_fullscreen = fullscreen;
+  applied_render_scale = scale;
+  applied_adaptive_scale = adaptive_scale;
+  applied_vsync = vsync;
+  applied_refresh_rate = refresh_rate;
+}
+
+/*
+** R_UpdateAdaptiveScale
+*/
+static void R_UpdateAdaptiveScale(void)
+{
+  static int previous_time;
+  static int accumulated_time;
+  static int accumulated_frames;
+  static int high_fps_intervals;
+  int now = Sys_Milliseconds();
+  int drawable_width, drawable_height;
+  int next_scale, next_effective;
+  float target_fps, average_fps;
+
+  if (!previous_time) {
+    previous_time = now;
+
+    return;
+  }
+
+  if (!applied_adaptive_scale || vid_resizing) {
+    previous_time = now;
+    accumulated_time = 0;
+    accumulated_frames = 0;
+
+    return;
+  }
+
+  accumulated_time += now - previous_time;
+  previous_time = now;
+  accumulated_frames++;
+
+  if (accumulated_frames < 60 || accumulated_time <= 0) {
+    return;
+  }
+
+  target_fps = vid_maxfps->value;
+  if (RE_IsVsyncActive() && gfx_get_refresh_rate() < target_fps) {
+    target_fps = (float) gfx_get_refresh_rate();
+  }
+  if (target_fps < 30.0f) {
+    target_fps = 30.0f;
+  }
+
+  average_fps = accumulated_frames * 1000.0f / accumulated_time;
+  accumulated_time = 0;
+  accumulated_frames = 0;
+  next_scale = adaptive_render_scale;
+
+  if (average_fps < target_fps * 0.92f && next_scale < MAX_RENDER_SCALE) {
+    next_scale++;
+    high_fps_intervals = 0;
+  } else if (average_fps > target_fps * 1.35f && next_scale > applied_render_scale) {
+    if (++high_fps_intervals >= 30) {
+      next_scale--;
+      high_fps_intervals = 0;
+    }
+  } else {
+    high_fps_intervals = 0;
+  }
+
+  if (next_scale == adaptive_render_scale) {
+    return;
+  }
+
+  gfx_get_drawable_size(&drawable_width, &drawable_height);
+  next_effective = R_EffectiveScale(drawable_width, drawable_height, next_scale);
+
+  if (R_ResizeBuffers(drawable_width / next_effective, drawable_height / next_effective)) {
+    adaptive_render_scale = next_scale;
+    effective_render_scale = next_effective;
+  }
+}
+
+/*
+** RE_WindowResized
+*/
+void RE_WindowResized(int width, int height)
+{
+  int drawable_width, drawable_height;
+
+  if (applied_fullscreen < 0 || vid_resizing) {
+    return;
+  }
+
+  if (!gfx_is_fullscreen()) {
+    applied_width = requested_width = width;
+    applied_height = requested_height = height;
+    Cvar_SetValue("vid_width", (float) width);
+    Cvar_SetValue("vid_height", (float) height);
+  }
+
+  gfx_get_drawable_size(&drawable_width, &drawable_height);
+  effective_render_scale = R_EffectiveScale(drawable_width, drawable_height, adaptive_render_scale);
+  R_ResizeBuffers(drawable_width / effective_render_scale, drawable_height / effective_render_scale);
 }
 
 /*
@@ -1511,32 +1727,7 @@ static qboolean SWimp_InitGraphics(qboolean fullscreen, int *pwidth, int *pheigh
 void RE_EndFrame(void)
 {
   gfx_update(sw_state, vid);
-}
-
-/*
-** SWimp_SetMode
-*/
-rserr_t SWimp_SetMode(int *pwidth, int *pheight, int mode, qboolean fullscreen)
-{
-  rserr_t retval = rserr_ok;
-
-  R_Printf(PRINT_ALL, "setting mode %d:", mode);
-
-  if ((mode != -1) && !VID_GetModeInfo(pwidth, pheight, mode)) {
-    R_Printf(PRINT_ALL, " invalid mode\n");
-    return rserr_invalid_mode;
-  }
-
-  R_Printf(PRINT_ALL, " %d %d\n", *pwidth, *pheight);
-
-  if (!SWimp_InitGraphics(fullscreen, pwidth, pheight)) {
-    // failed to set a valid mode in windowed mode
-    return rserr_invalid_mode;
-  }
-
-  R_GammaCorrectAndSetPalette((const unsigned char *) d_8to24table);
-
-  return retval;
+  R_UpdateAdaptiveScale();
 }
 
 /*
@@ -1548,6 +1739,7 @@ rserr_t SWimp_SetMode(int *pwidth, int *pheight, int mode, qboolean fullscreen)
 
 void SWimp_Shutdown(void)
 {
-  SWimp_DestroyRender();
+  SWimp_FreeBuffers();
+  gfx_free();
   gfx_shutdown();
 }

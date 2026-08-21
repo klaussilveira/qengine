@@ -1,0 +1,15 @@
+name: Lint
+on: [push, pull_request]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint
+        uses: cpp-linter/cpp-linter-action@v1.4.4
+        with:
+          style: file

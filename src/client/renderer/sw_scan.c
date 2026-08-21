@@ -375,6 +375,9 @@ D_DrawSpans16
 void D_DrawSpans16(espan_t *pspan)
 {
   int spancount;
+  int ditherkernel[2][2][2];
+  const int (*ditherrow)[2];
+  int screenx;
   unsigned char *pbase;
   int snext, tnext, sstep, tstep;
   float spancountminus1;
@@ -382,6 +385,18 @@ void D_DrawSpans16(espan_t *pspan)
 
   sstep = 0; // keep compiler happy
   tstep = 0; // ditto
+
+  {
+    int x, y;
+    int ditherdiv = 1 << d_miplevel;
+
+    for (y = 0; y < 2; y++) {
+      for (x = 0; x < 2; x++) {
+        ditherkernel[y][x][0] = r_ditherkernel[y][x][0] / ditherdiv;
+        ditherkernel[y][x][1] = r_ditherkernel[y][x][1] / ditherdiv;
+      }
+    }
+  }
 
   pbase = (unsigned char *) cacheblock;
 
@@ -397,6 +412,8 @@ void D_DrawSpans16(espan_t *pspan)
     pdest = d_viewbuffer + (r_screenwidth * pspan->v) + pspan->u;
 
     count = pspan->count;
+    screenx = pspan->u;
+    ditherrow = ditherkernel[pspan->v & 1];
 
     // calculate the initial s/z, t/z, 1/z, s, and t and clamp
     du = (float) pspan->u;
@@ -483,32 +500,46 @@ void D_DrawSpans16(espan_t *pspan)
       }
 
       if (r_udither->value == 0) {
-        do {
-          *pdest++ = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
-          s += sstep;
-          t += tstep;
-        } while (--spancount > 0);
+        if (spancount == 8) {
+          pdest[0] = pbase[(s >> 16) + (t >> 16) * cachewidth];
+          pdest[1] = pbase[((s + sstep) >> 16) + ((t + tstep) >> 16) * cachewidth];
+          pdest[2] = pbase[((s + sstep * 2) >> 16) + ((t + tstep * 2) >> 16) * cachewidth];
+          pdest[3] = pbase[((s + sstep * 3) >> 16) + ((t + tstep * 3) >> 16) * cachewidth];
+          pdest[4] = pbase[((s + sstep * 4) >> 16) + ((t + tstep * 4) >> 16) * cachewidth];
+          pdest[5] = pbase[((s + sstep * 5) >> 16) + ((t + tstep * 5) >> 16) * cachewidth];
+          pdest[6] = pbase[((s + sstep * 6) >> 16) + ((t + tstep * 6) >> 16) * cachewidth];
+          pdest[7] = pbase[((s + sstep * 7) >> 16) + ((t + tstep * 7) >> 16) * cachewidth];
+          pdest += 8;
+          s += sstep * 8;
+          t += tstep * 8;
+        } else {
+          do {
+            *pdest++ = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
+            s += sstep;
+            t += tstep;
+          } while (--spancount > 0);
+        }
       } else {
-        int sc = spancount;
         do {
-          int idiths = s;
-          int iditht = t;
-
-          int X = (pspan->u + (sc - spancount)) & 1;
-          int Y = pspan->v & 1;
-
-          idiths += r_ditherkernel[Y][X][0];
-          iditht += r_ditherkernel[Y][X][1];
+          const int *kernel = ditherrow[screenx & 1];
+          int idiths = s + kernel[0];
+          int iditht = t + kernel[1];
 
           /* Clamp to texture bounds to prevent artifacts at edges */
-          if (idiths > bbextents)
+          if (idiths < 0)
+            idiths = 0;
+          else if (idiths > bbextents)
             idiths = bbextents;
-          if (iditht > bbextentt)
+
+          if (iditht < 0)
+            iditht = 0;
+          else if (iditht > bbextentt)
             iditht = bbextentt;
 
           *pdest++ = *(pbase + (idiths >> 16) + (iditht >> 16) * cachewidth);
           s += sstep;
           t += tstep;
+          screenx++;
         } while (--spancount > 0);
       }
 

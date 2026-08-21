@@ -23,33 +23,6 @@
 
 qboolean VID_LoadRefresh(void);
 
-typedef struct vidmode_s
-{
-  const char *description;
-  int width, height;
-  int mode;
-} vidmode_t;
-
-/* This must be the same as in videomenu.c! */
-vidmode_t vid_modes[] = {
-    {"Mode  0:  320x240", 320, 240, 0},     {"Mode  1:  400x300", 400, 300, 1},
-    {"Mode  2:  512x384", 512, 384, 2},     {"Mode  3:  640x400", 640, 400, 3},
-    {"Mode  4:  640x480", 640, 480, 4},     {"Mode  5:  800x500", 800, 500, 5},
-    {"Mode  6:  800x600", 800, 600, 6},     {"Mode  7:  960x720", 960, 720, 7},
-    {"Mode  8: 1024x480", 1024, 480, 8},    {"Mode  9: 1024x640", 1024, 640, 9},
-    {"Mode 10: 1024x768", 1024, 768, 10},   {"Mode 11: 1152x768", 1152, 768, 11},
-    {"Mode 12: 1152x864", 1152, 864, 12},   {"Mode 13: 1280x800", 1280, 800, 13},
-    {"Mode 14: 1280x720", 1280, 720, 14},   {"Mode 15: 1280x960", 1280, 960, 15},
-    {"Mode 16: 1280x1024", 1280, 1024, 16}, {"Mode 17: 1366x768", 1366, 768, 17},
-    {"Mode 18: 1440x900", 1440, 900, 18},   {"Mode 19: 1600x1200", 1600, 1200, 19},
-    {"Mode 20: 1680x1050", 1680, 1050, 20}, {"Mode 21: 1920x1080", 1920, 1080, 21},
-    {"Mode 22: 1920x1200", 1920, 1200, 22}, {"Mode 23: 2048x1536", 2048, 1536, 23},
-    {"Mode 24: 2560x1080", 2560, 1080, 24}, {"Mode 25: 2560x1440", 2560, 1440, 25},
-    {"Mode 26: 2560x1600", 2560, 1600, 26}, {"Mode 27: 3440x1440", 3440, 1440, 27},
-    {"Mode 28: 3840x1600", 3840, 1600, 28}, {"Mode 29: 3840x2160", 3840, 2160, 29},
-    {"Mode 30: 4096x2160", 4096, 2160, 30}, {"Mode 31: 5120x2880", 5120, 2880, 31},
-};
-
 /* Console variables that we need to access from this module */
 cvar_t *vid_gamma;
 cvar_t *vid_fullscreen;
@@ -57,39 +30,16 @@ cvar_t *vid_fullscreen;
 /* Global variables used internally by this module */
 viddef_t viddef; /* global video state; used by other modules */
 
-#define VID_NUM_MODES (int) (sizeof(vid_modes) / sizeof(vid_modes[0]))
+static qboolean vid_reload_requested;
+
 #define MAXPRINTMSG 4096
 
 /*
- * Console command to re-start the video mode and refresh. We do this
- * simply by setting the modified flag for the vid_fullscreen variable, which
- * will cause the entire video mode and refreshto be reset on the next frame.
+ * Console command to re-start the video mode and refresh.
  */
 void VID_Restart_f(void)
 {
-  vid_fullscreen->modified = true;
-}
-
-void VID_ListModes_f(void)
-{
-  int i;
-  Com_Printf("Supported video modes (r_mode):\n");
-  for (i = 0; i < VID_NUM_MODES; ++i) {
-    Com_Printf("  %s\n", vid_modes[i].description);
-  }
-  Com_Printf("  Mode -1: r_customwidth x r_customheight\n");
-}
-
-qboolean VID_GetModeInfo(int *width, int *height, int mode)
-{
-  if ((mode < 0) || (mode >= VID_NUM_MODES)) {
-    return false;
-  }
-
-  *width = vid_modes[mode].width;
-  *height = vid_modes[mode].height;
-
-  return true;
+  vid_reload_requested = true;
 }
 
 void VID_NewWindow(int width, int height)
@@ -106,7 +56,9 @@ void VID_NewWindow(int width, int height)
  */
 void VID_CheckChanges(void)
 {
-  if (vid_fullscreen->modified) {
+  if (vid_reload_requested) {
+    vid_reload_requested = false;
+
     S_StopAllSounds();
 
     /* refresh has changed */
@@ -127,10 +79,9 @@ void VID_Init(void)
 
   /* Add some console commands that we want to handle */
   Cmd_AddCommand("vid_restart", VID_Restart_f);
-  Cmd_AddCommand("vid_listmodes", VID_ListModes_f);
 
   /* Start the graphics mode and load refresh DLL */
-  VID_CheckChanges();
+  VID_LoadRefresh();
 }
 
 void Key_MarkAllUp(void);

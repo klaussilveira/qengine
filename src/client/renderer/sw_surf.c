@@ -19,37 +19,177 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // r_surf.c: surface-related refresh code
 
+#include <stdint.h>
 #include "header/local.h"
+#include "../../platform/thread.h"
+
+#define MAX_SURFACE_BLOCKS 16
+#define SURFACE_THREAD_MIN_AREA 4096
 
 drawsurf_t r_drawsurf;
 
-int lightleft, sourcesstep, blocksize, sourcetstep;
+int sourcesstep, blocksize, sourcetstep;
 int lightdelta, lightdeltastep;
-int lightright, lightleftstep, lightrightstep, blockdivshift;
+int blockdivshift;
 unsigned blockdivmask;
-void *prowdestbase;
-unsigned char *pbasesource;
-int surfrowbytes; // used by ASM files
-unsigned *r_lightptr;
+int surfrowbytes;
 int r_stepback;
 int r_lightwidth;
 int r_numhblocks, r_numvblocks;
 unsigned char *r_source, *r_sourcemax;
 
-void R_DrawSurfaceBlock8_mip0(void);
+typedef void (*blockdrawer_t)(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest);
 
-void R_DrawSurfaceBlock8_mip1(void);
+static void R_DrawSurfaceBlock8_mip0(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest);
 
-void R_DrawSurfaceBlock8_mip2(void);
+static void R_DrawSurfaceBlock8_mip1(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest);
 
-void R_DrawSurfaceBlock8_mip3(void);
+static void R_DrawSurfaceBlock8_mip2(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest);
 
-static void (*surfmiptable[4])(void) = {R_DrawSurfaceBlock8_mip0, R_DrawSurfaceBlock8_mip1, R_DrawSurfaceBlock8_mip2,
+static void R_DrawSurfaceBlock8_mip3(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest);
+
+static blockdrawer_t surfmiptable[4] = {R_DrawSurfaceBlock8_mip0, R_DrawSurfaceBlock8_mip1, R_DrawSurfaceBlock8_mip2,
                                         R_DrawSurfaceBlock8_mip3};
 
 void R_BuildLightMap(void);
 
 extern unsigned blocklights[1024]; // allow some very large lightmaps
+
+static const int light_kernel_u[4] = {2, 14, 6, 10};
+static const int light_kernel_v[4] = {14, 6, 10, 2};
+
+static unsigned R_SampleLightmapBilinear(int u, int v)
+{
+  int x, y, x1, y1;
+  unsigned fu, fv;
+  unsigned a, b, c, d;
+  uint64_t top, bottom;
+  int lightheight = (r_drawsurf.surf->extents[1] >> 4) + 1;
+
+  if (u < 0) {
+    u = 0;
+  }
+  if (v < 0) {
+    v = 0;
+  }
+
+  x = u >> 16;
+  y = v >> 16;
+
+  if (x >= r_lightwidth) {
+    x = r_lightwidth - 1;
+    u = x << 16;
+  }
+  if (y >= lightheight) {
+    y = lightheight - 1;
+    v = y << 16;
+  }
+
+  x1 = x + 1 < r_lightwidth ? x + 1 : x;
+  y1 = y + 1 < lightheight ? y + 1 : y;
+  fu = (unsigned) u & 0xffff;
+  fv = (unsigned) v & 0xffff;
+
+  a = blocklights[y * r_lightwidth + x];
+  b = blocklights[y * r_lightwidth + x1];
+  c = blocklights[y1 * r_lightwidth + x];
+  d = blocklights[y1 * r_lightwidth + x1];
+
+  top = (uint64_t) a * (65536 - fu) + (uint64_t) b * fu;
+  bottom = (uint64_t) c * (65536 - fu) + (uint64_t) d * fu;
+
+  return (unsigned) ((top * (65536 - fv) + bottom * fv + (UINT64_C(1) << 31)) >> 32);
+}
+
+static void R_DrawSurfaceFilteredRow(int y, qboolean supersample)
+{
+  image_t *mt = r_drawsurf.image;
+  int mip = r_drawsurf.surfmip;
+  byte *source = mt->pixels[mip];
+  byte *colormap = (byte *) vid_colormap;
+  int texwidth = mt->width >> mip;
+  int texheight = mt->height >> mip;
+  int sbase = r_drawsurf.surf->texturemins[0] >> mip;
+  int tbase = r_drawsurf.surf->texturemins[1] >> mip;
+  int light_step = 1 << (mip + 12);
+  int light_center = 8 << (mip + 8);
+  byte *dest = r_drawsurf.surfdat + y * r_drawsurf.rowbytes;
+  int ty = (tbase + y) % texheight;
+  int tx = sbase % texwidth;
+  int lv = y * light_step + light_center;
+  int x;
+
+  if (ty < 0) {
+    ty += texheight;
+  }
+  if (tx < 0) {
+    tx += texwidth;
+  }
+
+  for (x = 0; x < r_drawsurf.surfwidth; x++) {
+    unsigned light;
+
+    if (supersample) {
+      int k;
+
+      light = 0;
+      for (k = 0; k < 4; k++) {
+        int lu = x * light_step + light_kernel_u[k] * (1 << mip) * 256;
+        int sample_v = y * light_step + light_kernel_v[k] * (1 << mip) * 256;
+
+        light += R_SampleLightmapBilinear(lu, sample_v);
+      }
+
+      light = (light + 2) >> 2;
+    } else {
+      light = R_SampleLightmapBilinear(x * light_step + light_center, lv);
+    }
+
+    dest[x] = colormap[(light & 0xff00) + source[ty * texwidth + tx]];
+
+    if (++tx == texwidth) {
+      tx = 0;
+    }
+  }
+}
+
+static blockdrawer_t surface_block_drawer;
+static unsigned char *surface_block_source[MAX_SURFACE_BLOCKS];
+static qboolean surface_job_supersample;
+
+static void R_SurfaceFilteredUnit(int unit)
+{
+  R_DrawSurfaceFilteredRow(unit, surface_job_supersample);
+}
+
+static void R_SurfaceBlockUnit(int unit)
+{
+  surface_block_drawer(blocklights + unit, surface_block_source[unit],
+                       (unsigned char *) r_drawsurf.surfdat + unit * blocksize);
+}
+
+static qboolean R_SurfaceThreaded(int area)
+{
+  return r_surface_threads->value != 0 && thread_pool_workers() > 0 && area >= SURFACE_THREAD_MIN_AREA;
+}
+
+static void R_DrawSurfaceFiltered(qboolean supersample)
+{
+  int area = r_drawsurf.surfwidth * r_drawsurf.surfheight;
+  int row;
+
+  surface_job_supersample = supersample;
+
+  if (R_SurfaceThreaded(supersample ? area * 4 : area)) {
+    thread_pool_run(R_SurfaceFilteredUnit, r_drawsurf.surfheight);
+
+    return;
+  }
+
+  for (row = 0; row < r_drawsurf.surfheight; row++) {
+    R_DrawSurfaceFilteredRow(row, supersample);
+  }
+}
 
 float surfscale;
 qboolean r_cache_thrash; // set if surface cache is thrashing
@@ -93,7 +233,7 @@ void R_DrawSurface(void)
   int soffset, basetoffset, texwidth;
   int horzblockstep;
   unsigned char *pcolumndest;
-  void (*pblockdrawer)(void);
+  blockdrawer_t pblockdrawer;
   image_t *mt;
 
   surfrowbytes = r_drawsurf.rowbytes;
@@ -112,6 +252,11 @@ void R_DrawSurface(void)
   blockdivmask = (1 << blockdivshift) - 1;
 
   r_lightwidth = (r_drawsurf.surf->extents[0] >> 4) + 1;
+
+  if (r_lightmap_smooth->value != 0) {
+    R_DrawSurfaceFiltered(r_lightmap_smooth->value >= 2);
+    return;
+  }
 
   r_numhblocks = r_drawsurf.surfwidth >> blockdivshift;
   r_numvblocks = r_drawsurf.surfheight >> blockdivshift;
@@ -139,14 +284,25 @@ void R_DrawSurface(void)
 
   pcolumndest = r_drawsurf.surfdat;
 
+  if (r_surface_threads->value >= 2 && r_numhblocks <= MAX_SURFACE_BLOCKS &&
+      R_SurfaceThreaded(r_drawsurf.surfwidth * r_drawsurf.surfheight)) {
+    surface_block_drawer = pblockdrawer;
+
+    for (u = 0; u < r_numhblocks; u++) {
+      surface_block_source[u] = basetptr + soffset;
+
+      soffset = soffset + blocksize;
+      if (soffset >= smax)
+        soffset = 0;
+    }
+
+    thread_pool_run(R_SurfaceBlockUnit, r_numhblocks);
+
+    return;
+  }
+
   for (u = 0; u < r_numhblocks; u++) {
-    r_lightptr = blocklights + u;
-
-    prowdestbase = pcolumndest;
-
-    pbasesource = basetptr + soffset;
-
-    (*pblockdrawer)();
+    (*pblockdrawer)(blocklights + u, basetptr + soffset, pcolumndest);
 
     soffset = soffset + blocksize;
     if (soffset >= smax)
@@ -163,22 +319,19 @@ void R_DrawSurface(void)
 R_DrawSurfaceBlock8_mip0
 ================
 */
-void R_DrawSurfaceBlock8_mip0(void)
+static void R_DrawSurfaceBlock8_mip0(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest)
 {
   int v, i, b, lightstep, lighttemp, light;
-  unsigned char pix, *psource, *prowdest;
-
-  psource = pbasesource;
-  prowdest = prowdestbase;
+  int lightleft, lightright, lightleftstep, lightrightstep;
+  unsigned char pix;
 
   for (v = 0; v < r_numvblocks; v++) {
-    // FIXME: make these locals?
     // FIXME: use delta rather than both right and left, like ASM?
-    lightleft = r_lightptr[0];
-    lightright = r_lightptr[1];
-    r_lightptr += r_lightwidth;
-    lightleftstep = (r_lightptr[0] - lightleft) >> 4;
-    lightrightstep = (r_lightptr[1] - lightright) >> 4;
+    lightleft = lightptr[0];
+    lightright = lightptr[1];
+    lightptr += r_lightwidth;
+    lightleftstep = (lightptr[0] - lightleft) >> 4;
+    lightrightstep = (lightptr[1] - lightright) >> 4;
 
     for (i = 0; i < 16; i++) {
       lighttemp = lightleft - lightright;
@@ -208,22 +361,19 @@ void R_DrawSurfaceBlock8_mip0(void)
 R_DrawSurfaceBlock8_mip1
 ================
 */
-void R_DrawSurfaceBlock8_mip1(void)
+static void R_DrawSurfaceBlock8_mip1(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest)
 {
   int v, i, b, lightstep, lighttemp, light;
-  unsigned char pix, *psource, *prowdest;
-
-  psource = pbasesource;
-  prowdest = prowdestbase;
+  int lightleft, lightright, lightleftstep, lightrightstep;
+  unsigned char pix;
 
   for (v = 0; v < r_numvblocks; v++) {
-    // FIXME: make these locals?
     // FIXME: use delta rather than both right and left, like ASM?
-    lightleft = r_lightptr[0];
-    lightright = r_lightptr[1];
-    r_lightptr += r_lightwidth;
-    lightleftstep = (r_lightptr[0] - lightleft) >> 3;
-    lightrightstep = (r_lightptr[1] - lightright) >> 3;
+    lightleft = lightptr[0];
+    lightright = lightptr[1];
+    lightptr += r_lightwidth;
+    lightleftstep = (lightptr[0] - lightleft) >> 3;
+    lightrightstep = (lightptr[1] - lightright) >> 3;
 
     for (i = 0; i < 8; i++) {
       lighttemp = lightleft - lightright;
@@ -253,22 +403,19 @@ void R_DrawSurfaceBlock8_mip1(void)
 R_DrawSurfaceBlock8_mip2
 ================
 */
-void R_DrawSurfaceBlock8_mip2(void)
+static void R_DrawSurfaceBlock8_mip2(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest)
 {
   int v, i, b, lightstep, lighttemp, light;
-  unsigned char pix, *psource, *prowdest;
-
-  psource = pbasesource;
-  prowdest = prowdestbase;
+  int lightleft, lightright, lightleftstep, lightrightstep;
+  unsigned char pix;
 
   for (v = 0; v < r_numvblocks; v++) {
-    // FIXME: make these locals?
     // FIXME: use delta rather than both right and left, like ASM?
-    lightleft = r_lightptr[0];
-    lightright = r_lightptr[1];
-    r_lightptr += r_lightwidth;
-    lightleftstep = (r_lightptr[0] - lightleft) >> 2;
-    lightrightstep = (r_lightptr[1] - lightright) >> 2;
+    lightleft = lightptr[0];
+    lightright = lightptr[1];
+    lightptr += r_lightwidth;
+    lightleftstep = (lightptr[0] - lightleft) >> 2;
+    lightrightstep = (lightptr[1] - lightright) >> 2;
 
     for (i = 0; i < 4; i++) {
       lighttemp = lightleft - lightright;
@@ -298,22 +445,19 @@ void R_DrawSurfaceBlock8_mip2(void)
 R_DrawSurfaceBlock8_mip3
 ================
 */
-void R_DrawSurfaceBlock8_mip3(void)
+static void R_DrawSurfaceBlock8_mip3(unsigned *lightptr, unsigned char *psource, unsigned char *prowdest)
 {
   int v, i, b, lightstep, lighttemp, light;
-  unsigned char pix, *psource, *prowdest;
-
-  psource = pbasesource;
-  prowdest = prowdestbase;
+  int lightleft, lightright, lightleftstep, lightrightstep;
+  unsigned char pix;
 
   for (v = 0; v < r_numvblocks; v++) {
-    // FIXME: make these locals?
     // FIXME: use delta rather than both right and left, like ASM?
-    lightleft = r_lightptr[0];
-    lightright = r_lightptr[1];
-    r_lightptr += r_lightwidth;
-    lightleftstep = (r_lightptr[0] - lightleft) >> 1;
-    lightrightstep = (r_lightptr[1] - lightright) >> 1;
+    lightleft = lightptr[0];
+    lightright = lightptr[1];
+    lightptr += r_lightwidth;
+    lightleftstep = (lightptr[0] - lightleft) >> 1;
+    lightrightstep = (lightptr[1] - lightright) >> 1;
 
     for (i = 0; i < 2; i++) {
       lighttemp = lightleft - lightright;
@@ -515,6 +659,13 @@ D_CacheSurface
 surfcache_t *D_CacheSurface(msurface_t *surface, int miplevel)
 {
   surfcache_t *cache;
+  int lightmap_filter = (int) r_lightmap_smooth->value;
+
+  if (lightmap_filter < 0) {
+    lightmap_filter = 0;
+  } else if (lightmap_filter > 2) {
+    lightmap_filter = 2;
+  }
 
   //
   // if the surface is animating or flashing, flush the cache
@@ -531,8 +682,9 @@ surfcache_t *D_CacheSurface(msurface_t *surface, int miplevel)
   cache = surface->cachespots[miplevel];
 
   if (cache && !cache->dlight && surface->dlightframe != r_framecount && cache->image == r_drawsurf.image &&
-      cache->lightadj[0] == r_drawsurf.lightadj[0] && cache->lightadj[1] == r_drawsurf.lightadj[1] &&
-      cache->lightadj[2] == r_drawsurf.lightadj[2] && cache->lightadj[3] == r_drawsurf.lightadj[3])
+      cache->lightmap_smooth == lightmap_filter && cache->lightadj[0] == r_drawsurf.lightadj[0] &&
+      cache->lightadj[1] == r_drawsurf.lightadj[1] && cache->lightadj[2] == r_drawsurf.lightadj[2] &&
+      cache->lightadj[3] == r_drawsurf.lightadj[3])
     return cache;
 
   //
@@ -563,6 +715,7 @@ surfcache_t *D_CacheSurface(msurface_t *surface, int miplevel)
   r_drawsurf.surfdat = (pixel_t *) cache->data;
 
   cache->image = r_drawsurf.image;
+  cache->lightmap_smooth = lightmap_filter;
   cache->lightadj[0] = r_drawsurf.lightadj[0];
   cache->lightadj[1] = r_drawsurf.lightadj[1];
   cache->lightadj[2] = r_drawsurf.lightadj[2];

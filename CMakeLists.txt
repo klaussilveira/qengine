@@ -22,9 +22,11 @@ set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 set(PROJECT_INCLUDE_DIRS)
 set(PROJECT_LINK_DIRS)
 set(COMMON_LINKER_FLAGS)
+set(PLATFORM_LIBRARIES)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   list(APPEND COMMON_LINKER_FLAGS -lm -static-libgcc)
+  list(APPEND PLATFORM_LIBRARIES ws2_32 winmm)
 else()
   list(APPEND COMMON_LINKER_FLAGS -lm -rdynamic)
 endif()
@@ -49,12 +51,14 @@ set(CLIENT_PLATFORM_SOURCE ${SOURCE_DIR}/platform/generic/misc.c ${SOURCE_DIR}/p
 set(CLIENT_PLATFORM_HEADER
     ${SOURCE_DIR}/platform/graphics.h
     ${SOURCE_DIR}/platform/input.h
-    ${SOURCE_DIR}/platform/sound.h)
+    ${SOURCE_DIR}/platform/sound.h
+    ${SOURCE_DIR}/platform/thread.h)
 
 set(SDL_SOURCE
     ${SOURCE_DIR}/platform/sdl/graphics.c
     ${SOURCE_DIR}/platform/sdl/input.c
-    ${SOURCE_DIR}/platform/sdl/sound.c)
+    ${SOURCE_DIR}/platform/sdl/sound.c
+    ${SOURCE_DIR}/platform/sdl/thread.c)
 
 set(UNIX_SOURCE
     ${SOURCE_DIR}/platform/unix/main.c
@@ -66,7 +70,6 @@ set(UNIX_SOURCE
 set(UNIX_HEADER ${SOURCE_DIR}/platform/unix/header/unix.h)
 
 set(WINDOWS_SOURCE
-    ${SOURCE_DIR}/platform/windows/icon.rc
     ${SOURCE_DIR}/platform/windows/network.c
     ${SOURCE_DIR}/platform/windows/system.c
     ${SOURCE_DIR}/platform/windows/memory.c)
@@ -270,9 +273,14 @@ add_executable(client
                ${GAME_HEADER})
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 target_link_options(client PRIVATE ${COMMON_LINKER_FLAGS})
-target_link_libraries(client PRIVATE m)
+target_link_libraries(client PRIVATE m ${PLATFORM_LIBRARIES})
 if(BUILD_SDL)
   target_link_libraries(client PRIVATE SDL2::SDL2)
+
+  if(VENDOR_SDL AND ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    add_custom_command(TARGET client POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:client>)
+  endif()
 endif()
 
 # Dedicated Server
@@ -289,7 +297,7 @@ set_target_properties(server
                                  RUNTIME_OUTPUT_DIRECTORY
                                  ${CMAKE_BINARY_DIR})
 target_link_options(server PRIVATE ${COMMON_LINKER_FLAGS})
-target_link_libraries(server PRIVATE m)
+target_link_libraries(server PRIVATE m ${PLATFORM_LIBRARIES})
 
 if(BUILD_TOOLS)
   add_subdirectory(src/tools)

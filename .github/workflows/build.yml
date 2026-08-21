@@ -1,62 +1,161 @@
 name: Build
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_call:
 
 jobs:
-  binary:
-    name: ${{ matrix.os }} ${{ matrix.cc }}
-    runs-on: ${{ matrix.os }}
+  linux:
+    name: Linux (${{ matrix.cc }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            cc: gcc
+          - cc: gcc
             cxx: g++
-          - os: ubuntu-latest
-            cc: clang
+          - cc: clang
             cxx: clang++
     env:
-      CMAKE_BUILD_DIR: ${{ github.workspace }}/build/
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -y -qq
-          sudo apt-get install cmake doxygen graphviz
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang cmake ninja-build ccache \
+            doxygen graphviz zip
 
-      - name: Lint
-        uses: cpp-linter/cpp-linter-action@v1.4.4
+      - name: Setup ccache
+        uses: actions/cache@v4
         with:
-          style: file
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-${{ matrix.cc }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.cc }}-ccache-
 
-      - name: Generate project
-        run: cmake -B "${{ env.CMAKE_BUILD_DIR }}" -DBUILD_DOCS=1
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_DOCS=1 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-      - name: Compile
-        run: cmake --build "${{ env.CMAKE_BUILD_DIR }}"
+      - name: Build
+        run: cmake --build build
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
+      - name: Package
+        if: matrix.cc == 'gcc'
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION="${GITHUB_SHA::8}"
+          fi
+          PKG="qengine-${VERSION}-linux-x86_64"
+          mkdir -p "$PKG/tools" dist
+          cp build/client build/server "$PKG/"
+          cp build/tools/* "$PKG/tools/"
+          cp -R src/tools/assetgen "$PKG/tools/"
+          cp -R assets "$PKG/"
+          cp -R build/docs/html "$PKG/docs"
+          tar -czf "dist/${PKG}.tar.gz" "$PKG"
+          ls -lh dist/
+
+      - name: Upload artifact
+        if: matrix.cc == 'gcc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qengine-linux-x86_64
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows (mingw-w64)
     runs-on: ubuntu-latest
-    needs: [binary]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Build package
+      - name: Install dependencies
         run: |
-          cp build/client client
-          cp build/server server
-          cp -R tools/ .
-          cp -R docs/html/ docs/
-          zip -r qengine-${{ github.ref_name }}.zip assets/ tools/ docs/ client server
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build ccache \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
+            doxygen graphviz zip
+
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-mingw-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-mingw-ccache-
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_DOCS=1 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION="${GITHUB_SHA::8}"
+          fi
+          PKG="qengine-${VERSION}-windows-x86_64"
+          mkdir -p "$PKG/tools" dist
+          cp build/client.exe build/server.exe build/SDL2.dll "$PKG/"
+          cp build/tools/*.exe "$PKG/tools/"
+          cp -R src/tools/assetgen "$PKG/tools/"
+          cp -R assets "$PKG/"
+          cp -R build/docs/html "$PKG/docs"
+          zip -r "dist/${PKG}.zip" "$PKG"
+          ls -lh dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qengine-windows-x86_64
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: qengine-${{ github.ref_name }}.zip
+          files: dist/*
