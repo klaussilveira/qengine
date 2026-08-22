@@ -1,12 +1,25 @@
 #include <SDL.h>
 #include "../graphics.h"
+#include "../thread.h"
+
+#if (defined(__i386__) || defined(__x86_64__)) && (defined(__GNUC__) || defined(__clang__))
+#include <immintrin.h>
+#define QENGINE_PRESENT_AVX2 1
+#else
+#define QENGINE_PRESENT_AVX2 0
+#endif
 
 static SDL_Window *window = NULL;
-static SDL_Surface *surface = NULL;
-static SDL_Surface *surface_indexed = NULL; // 8-bit indexed source surface
 static SDL_Texture *texture = NULL;
 static SDL_Renderer *renderer = NULL;
 static unsigned char cached_palette[1024];
+static Uint32 palette_lut[256];
+static qboolean present_avx2_available;
+static const unsigned char *expand_source;
+static Uint8 *expand_destination;
+static int expand_destination_pitch;
+static int expand_source_pitch;
+static int expand_width;
 static int refreshRate = -1;
 static qboolean mouse_grabbed = false;
 
@@ -18,6 +31,13 @@ static int window_height = 0;
 
 qboolean gfx_init()
 {
+#if QENGINE_PRESENT_AVX2
+  __builtin_cpu_init();
+  present_avx2_available = __builtin_cpu_supports("avx2") != 0;
+#else
+  present_avx2_available = false;
+#endif
+
   if (!SDL_WasInit(SDL_INIT_VIDEO)) {
     if (SDL_Init(SDL_INIT_VIDEO) == -1) {
       Com_Printf("Couldn't init SDL video: %s.\n", SDL_GetError());
@@ -56,29 +76,12 @@ static void DestroyRenderTarget(void)
   }
   texture = NULL;
 
-  if (surface) {
-    SDL_FreeSurface(surface);
-  }
-  surface = NULL;
-
-  if (surface_indexed) {
-    SDL_FreeSurface(surface_indexed);
-  }
-  surface_indexed = NULL;
-
   memset(cached_palette, 0, sizeof(cached_palette));
 }
 
 qboolean gfx_resize_render_target(int rend_width, int rend_height)
 {
-  Uint32 Rmask, Gmask, Bmask, Amask;
-  int bpp;
-
   if (renderer == NULL) {
-    return false;
-  }
-
-  if (!SDL_PixelFormatEnumToMasks(SDL_PIXELFORMAT_ARGB8888, &bpp, &Rmask, &Gmask, &Bmask, &Amask)) {
     return false;
   }
 
@@ -88,12 +91,10 @@ qboolean gfx_resize_render_target(int rend_width, int rend_height)
   render_height = rend_height;
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-  surface = SDL_CreateRGBSurface(0, render_width, render_height, bpp, Rmask, Gmask, Bmask, Amask);
-  surface_indexed = SDL_CreateRGBSurface(0, render_width, render_height, 8, 0, 0, 0, 0);
   texture =
       SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, render_width, render_height);
 
-  if (surface == NULL || surface_indexed == NULL || texture == NULL) {
+  if (texture == NULL) {
     Com_Printf("Failed to create render target %dx%d: %s\n", render_width, render_height, SDL_GetError());
     DestroyRenderTarget();
 
@@ -323,39 +324,83 @@ qboolean gfx_set_refresh_rate(int refresh_rate, int width, int height)
   return true;
 }
 
+#if QENGINE_PRESENT_AVX2
+__attribute__((target("avx2"))) static void gfx_expand_row_avx2(Uint32 *destination, const unsigned char *source,
+                                                                int width)
+{
+  int x = 0;
+
+  for (; x + 8 <= width; x += 8) {
+    __m256i pixels = _mm256_setr_epi32((int) palette_lut[source[x]], (int) palette_lut[source[x + 1]],
+                                       (int) palette_lut[source[x + 2]], (int) palette_lut[source[x + 3]],
+                                       (int) palette_lut[source[x + 4]], (int) palette_lut[source[x + 5]],
+                                       (int) palette_lut[source[x + 6]], (int) palette_lut[source[x + 7]]);
+
+    _mm256_storeu_si256((__m256i *) (destination + x), pixels);
+  }
+
+  for (; x < width; x++) {
+    destination[x] = palette_lut[source[x]];
+  }
+}
+#endif
+
+static void gfx_expand_row(Uint32 *destination, const unsigned char *source, int width)
+{
+  int x;
+
+#if QENGINE_PRESENT_AVX2
+  if (present_avx2_available) {
+    gfx_expand_row_avx2(destination, source, width);
+
+    return;
+  }
+#endif
+
+  for (x = 0; x < width; x++) {
+    destination[x] = palette_lut[source[x]];
+  }
+}
+
+static void gfx_expand_unit(int unit)
+{
+  gfx_expand_row((Uint32 *) (expand_destination + unit * expand_destination_pitch),
+                 expand_source + unit * expand_source_pitch, expand_width);
+}
+
 void gfx_update(swstate_t sw_state, viddef_t vid)
 {
   const unsigned char *palette = sw_state.currentpalette;
+  void *pixels;
+  int pitch;
   int i;
 
-  if (surface_indexed == NULL || surface == NULL || texture == NULL) {
+  if (texture == NULL) {
     return;
   }
 
   if (memcmp(cached_palette, palette, sizeof(cached_palette)) != 0) {
-    SDL_Color colors[256];
-
     memcpy(cached_palette, palette, sizeof(cached_palette));
 
     for (i = 0; i < 256; i++) {
-      colors[i].r = palette[i * 4 + 0];
-      colors[i].g = palette[i * 4 + 1];
-      colors[i].b = palette[i * 4 + 2];
-      colors[i].a = 255;
+      palette_lut[i] = 0xff000000u | ((Uint32) palette[i * 4 + 0] << 16) | ((Uint32) palette[i * 4 + 1] << 8) |
+                       (Uint32) palette[i * 4 + 2];
     }
-
-    SDL_SetPaletteColors(surface_indexed->format->palette, colors, 0, 256);
   }
 
-  for (i = 0; i < vid.height; i++) {
-    memcpy((Uint8 *) surface_indexed->pixels + i * surface_indexed->pitch, vid_buffer + i * vid.width, vid.width);
+  if (SDL_LockTexture(texture, NULL, &pixels, &pitch) < 0) {
+    return;
   }
 
-  SDL_BlitSurface(surface_indexed, NULL, surface, NULL);
+  expand_destination = (Uint8 *) pixels;
+  expand_destination_pitch = pitch;
+  expand_source = vid_buffer;
+  expand_source_pitch = vid.width;
+  expand_width = vid.width;
+  thread_pool_run(gfx_expand_unit, vid.height);
 
-  SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
+  SDL_UnlockTexture(texture);
 
-  SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, texture, NULL, NULL);
   SDL_RenderPresent(renderer);
 }

@@ -145,9 +145,9 @@ extern oldrefdef_t r_refdef;
 #define DS_SPAN_LIST_END -128
 
 #define NUMSTACKEDGES 2000
-#define MINEDGES NUMSTACKEDGES
 #define NUMSTACKSURFACES 1000
-#define MINSURFACES NUMSTACKSURFACES
+#define MAXLIGHTS 1024
+#define SURFINDEX_MAX (1 << (sizeof(unsigned short) * 8))
 #define MAXSPANS 3000
 
 // flags in finalvert_t.flags
@@ -415,6 +415,8 @@ extern float d_scalemip[3];
 //===================================================================
 
 extern int cachewidth;
+
+void D_InitSIMD(void);
 extern pixel_t *cacheblock;
 extern int r_screenwidth;
 
@@ -613,7 +615,6 @@ void R_InitTurb(void);
 void R_DrawParticles(void);
 
 extern int r_amodels_drawn;
-extern edge_t *auxedges;
 extern int r_numallocatededges;
 extern edge_t *r_edges, *edge_p, *edge_max;
 
@@ -628,19 +629,27 @@ typedef struct
   pixel_t *ptex;
   int sfrac, tfrac, light, zi;
 } spanpackage_t;
-extern spanpackage_t *triangle_spans;
+extern spanpackage_t *triangle_spans, *triangles_max;
 
 extern byte **warp_rowptr;
 extern int *warp_column;
 extern espan_t *edge_basespans;
-extern finalvert_t *finalverts;
+extern espan_t *span_p, *max_span_p;
+extern finalvert_t *finalverts, *finalverts_max;
+extern unsigned *blocklights, *blocklight_max;
 
 extern int r_aliasblendcolor;
 
 extern float aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
 
-extern int r_outofsurfaces;
-extern int r_outofedges;
+extern qboolean r_outofsurfaces;
+extern qboolean r_outofedges;
+extern qboolean r_outoflights;
+extern qboolean r_outofverts;
+extern qboolean r_outoftriangles;
+extern qboolean r_outofedgebasespans;
+
+void R_ReallocateMapBuffers(void);
 
 extern mvertex_t *r_pcurrentvertbase;
 extern int r_maxvalidedgeoffset;
@@ -664,7 +673,6 @@ extern float dp_time1, dp_time2, db_time1, db_time2, rw_time1, rw_time2;
 extern float se_time1, se_time2, de_time1, de_time2, dv_time1, dv_time2;
 extern int r_frustum_indexes[4 * 6];
 extern int r_maxsurfsseen, r_maxedgesseen, r_cnumsurfs;
-extern qboolean r_surfsonstack;
 
 extern mleaf_t *r_viewleaf;
 extern int r_viewcluster, r_oldviewcluster;
@@ -741,8 +749,6 @@ void RE_Draw_GetPicSize(int *w, int *h, char *name);
 void RE_Draw_PicScaled(int x, int y, char *name, float factor);
 
 void RE_Draw_StretchPic(int x, int y, int w, int h, char *name);
-
-void RE_Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data);
 
 void RE_Draw_CharScaled(int x, int y, int c, float scale);
 

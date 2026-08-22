@@ -385,8 +385,8 @@ void R_SetupFrame(void)
   r_drawnpolycount = 0;
   r_wholepolycount = 0;
   r_amodels_drawn = 0;
-  r_outofsurfaces = 0;
-  r_outofedges = 0;
+  r_outofsurfaces = false;
+  r_outofedges = false;
 
   // d_setup
   d_roverwrapped = false;

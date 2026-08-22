@@ -29,7 +29,6 @@ complexity -- 1 to 3 or so
 have a sentinal at both ends?
 */
 
-edge_t *auxedges;
 edge_t *r_edges, *edge_p, *edge_max;
 
 surf_t *surfaces, *surface_p, *surf_max;
@@ -545,13 +544,12 @@ void R_ScanEdges(void)
   surf_t *s;
 
   basespan_p = edge_basespans;
-  max_span_p = edge_basespans + vid.width * 2 - r_refdef.vrect.width;
-  if ((vid.width * 2 - r_refdef.vrect.width) < 0) {
-    R_Printf(PRINT_ALL, "No space in edge_basespans\n");
+  span_p = basespan_p;
+
+  if (span_p + r_refdef.vrect.width >= max_span_p) {
+    r_outofedgebasespans = true;
     return;
   }
-
-  span_p = basespan_p;
 
   // clear active edges to just the background edges around the whole screen
   // FIXME: most of this only needs to be set up once
@@ -600,7 +598,7 @@ void R_ScanEdges(void)
 
     // flush the span list if we can't be sure we have enough spans left for
     // the next scan
-    if (span_p > max_span_p) {
+    if (span_p + r_refdef.vrect.width >= max_span_p) {
       D_DrawSurfaces();
 
       // clear the surface span pointers
@@ -608,6 +606,7 @@ void R_ScanEdges(void)
         s->spans = NULL;
 
       span_p = basespan_p;
+      r_outofedgebasespans = true;
     }
 
     if (removeedges[iv])

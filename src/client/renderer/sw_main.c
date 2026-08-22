@@ -53,17 +53,26 @@ vec3_t viewlightvec;
 alight_t r_viewlighting = {128, 192, viewlightvec};
 float r_time1;
 int r_numallocatededges;
+int r_numallocatedverts;
+int r_numallocatedtriangles;
+int r_numallocatedlights;
+int r_numallocatededgebasespans;
 float r_aliasuvscale = 1.0;
-int r_outofsurfaces;
-int r_outofedges;
+qboolean r_outofsurfaces;
+qboolean r_outofedges;
+qboolean r_outoflights;
+qboolean r_outofverts;
+qboolean r_outoftriangles;
+qboolean r_outofedgebasespans;
 
 qboolean r_dowarp;
+
+static surf_t *surfaces_base;
 
 mvertex_t *r_pcurrentvertbase;
 
 int c_surf;
 int r_maxsurfsseen, r_maxedgesseen, r_cnumsurfs;
-qboolean r_surfsonstack;
 int r_clipflags;
 
 //
@@ -120,10 +129,6 @@ cvar_t *sw_allow_modex;
 cvar_t *sw_clearcolor;
 cvar_t *sw_drawflat;
 cvar_t *sw_draworder;
-cvar_t *sw_maxedges;
-cvar_t *sw_maxsurfs;
-cvar_t *sw_reportedgeout;
-cvar_t *sw_reportsurfout;
 cvar_t *sw_stipplealpha;
 cvar_t *sw_surfcacheoverride;
 cvar_t *sw_waterwarp;
@@ -173,8 +178,6 @@ extern cvar_t *vid_maxfps;
 // PGM
 cvar_t *r_lockpvs;
 // PGM
-
-#define STRINGER(x) "x"
 
 // r_vars.c
 
@@ -277,12 +280,8 @@ void R_Register(void)
   sw_clearcolor = Cvar_Get("sw_clearcolor", "2", 0);
   sw_drawflat = Cvar_Get("sw_drawflat", "0", 0);
   sw_draworder = Cvar_Get("sw_draworder", "0", 0);
-  sw_maxedges = Cvar_Get("sw_maxedges", STRINGER(MAXSTACKSURFACES), 0);
-  sw_maxsurfs = Cvar_Get("sw_maxsurfs", "0", 0);
   sw_mipcap = Cvar_Get("sw_mipcap", "0", 0);
   sw_mipscale = Cvar_Get("sw_mipscale", "1", 0);
-  sw_reportedgeout = Cvar_Get("sw_reportedgeout", "0", 0);
-  sw_reportsurfout = Cvar_Get("sw_reportsurfout", "0", 0);
   sw_stipplealpha = Cvar_Get("sw_stipplealpha", "0", CVAR_ARCHIVE);
   sw_surfcacheoverride = Cvar_Get("sw_surfcacheoverride", "0", 0);
   sw_waterwarp = Cvar_Get("sw_waterwarp", "1", 0);
@@ -358,6 +357,7 @@ qboolean RE_Init(void)
     return false;
 
   thread_pool_init();
+  D_InitSIMD();
 
   // create the window
   RE_BeginFrame(0);
@@ -407,41 +407,187 @@ void R_NewMap(void)
 {
   r_viewcluster = -1;
 
-  r_cnumsurfs = sw_maxsurfs->value;
-
-  if (r_cnumsurfs <= MINSURFACES)
-    r_cnumsurfs = MINSURFACES;
-
-  if (r_cnumsurfs > NUMSTACKSURFACES) {
-    surfaces = malloc(r_cnumsurfs * sizeof(surf_t));
-    if (!surfaces) {
-      R_Printf(PRINT_ALL, "R_NewMap: Couldn't malloc %ld bytes\n", r_cnumsurfs * sizeof(surf_t));
-      return;
-    }
-
-    surface_p = surfaces;
-    surf_max = &surfaces[r_cnumsurfs];
-    r_surfsonstack = false;
-    // surface 0 doesn't really exist; it's just a dummy because index 0
-    // is used to indicate no edge attached to surface
-    surfaces--;
-  } else {
-    r_surfsonstack = true;
-  }
-
   r_maxedgesseen = 0;
   r_maxsurfsseen = 0;
 
-  r_numallocatededges = sw_maxedges->value;
+  R_ReallocateMapBuffers();
+}
 
-  if (r_numallocatededges < MINEDGES)
-    r_numallocatededges = MINEDGES;
+/*
+===============
+R_ReallocateMapBuffers
+===============
+*/
+void R_ReallocateMapBuffers(void)
+{
+  if (!r_cnumsurfs || (r_outofsurfaces && r_cnumsurfs < SURFINDEX_MAX)) {
+    if (surfaces_base) {
+      free(surfaces_base);
+    }
 
-  if (r_numallocatededges <= NUMSTACKEDGES) {
-    auxedges = NULL;
-  } else {
-    auxedges = malloc(r_numallocatededges * sizeof(edge_t));
+    if (r_outofsurfaces) {
+      r_cnumsurfs *= 2;
+    }
+
+    if (r_cnumsurfs < NUMSTACKSURFACES) {
+      r_cnumsurfs = NUMSTACKSURFACES;
+    }
+
+    if (r_cnumsurfs > SURFINDEX_MAX) {
+      r_cnumsurfs = SURFINDEX_MAX;
+    }
+
+    surfaces_base = malloc(r_cnumsurfs * sizeof(surf_t));
+    if (!surfaces_base) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__, r_cnumsurfs * sizeof(surf_t));
+      return;
+    }
+
+    surfaces = surfaces_base;
+    surf_max = &surfaces[r_cnumsurfs];
+    // surface 0 doesn't really exist; it's just a dummy because index 0
+    // is used to indicate no edge attached to surface
+    surfaces--;
+    surface_p = &surfaces[2];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d surfaces.\n", r_cnumsurfs);
   }
+
+  r_outofsurfaces = false;
+
+  if (!r_numallocatededges || r_outofedges) {
+    if (r_edges) {
+      free(r_edges);
+    }
+
+    if (r_outofedges) {
+      r_numallocatededges *= 2;
+      r_outofedges = false;
+    }
+
+    if (r_numallocatededges < NUMSTACKEDGES) {
+      r_numallocatededges = NUMSTACKEDGES;
+    }
+
+    r_edges = malloc(r_numallocatededges * sizeof(edge_t));
+    if (!r_edges) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__, r_numallocatededges * sizeof(edge_t));
+      return;
+    }
+
+    edge_p = r_edges;
+    edge_max = &r_edges[r_numallocatededges];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d edges.\n", r_numallocatededges);
+  }
+
+  if (!r_numallocatedlights || r_outoflights) {
+    if (blocklights) {
+      free(blocklights);
+    }
+
+    if (r_outoflights) {
+      r_numallocatedlights *= 2;
+      r_outoflights = false;
+    }
+
+    if (r_numallocatedlights < MAXLIGHTS) {
+      r_numallocatedlights = MAXLIGHTS;
+    }
+
+    blocklights = calloc(r_numallocatedlights, sizeof(unsigned));
+    if (!blocklights) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__, r_numallocatedlights * sizeof(unsigned));
+      return;
+    }
+
+    blocklight_max = &blocklights[r_numallocatedlights];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d lights.\n", r_numallocatedlights);
+  }
+
+  if (!r_numallocatedverts || r_outofverts) {
+    if (finalverts) {
+      free(finalverts);
+    }
+
+    if (r_outofverts) {
+      r_numallocatedverts *= 2;
+      r_outofverts = false;
+    }
+
+    if (r_numallocatedverts < MAXALIASVERTS) {
+      r_numallocatedverts = MAXALIASVERTS;
+    }
+
+    finalverts = malloc((r_numallocatedverts + 3) * sizeof(finalvert_t));
+    if (!finalverts) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__,
+                (r_numallocatedverts + 3) * sizeof(finalvert_t));
+      return;
+    }
+
+    finalverts_max = &finalverts[r_numallocatedverts];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d verts.\n", r_numallocatedverts);
+  }
+
+  if (!r_numallocatedtriangles || r_outoftriangles) {
+    if (triangle_spans) {
+      free(triangle_spans);
+    }
+
+    if (r_outoftriangles) {
+      r_numallocatedtriangles *= 2;
+      r_outoftriangles = false;
+    }
+
+    if (r_numallocatedtriangles < vid.height + 1) {
+      r_numallocatedtriangles = vid.height + 1;
+    }
+
+    triangle_spans = malloc(r_numallocatedtriangles * sizeof(spanpackage_t));
+    if (!triangle_spans) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__,
+                r_numallocatedtriangles * sizeof(spanpackage_t));
+      return;
+    }
+
+    triangles_max = &triangle_spans[r_numallocatedtriangles];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d triangle spans.\n", r_numallocatedtriangles);
+  }
+
+  if (!r_numallocatededgebasespans || (r_outofedgebasespans && r_numallocatededgebasespans < vid.width * 64)) {
+    if (edge_basespans) {
+      free(edge_basespans);
+    }
+
+    if (r_outofedgebasespans) {
+      r_numallocatededgebasespans *= 2;
+    }
+
+    if (r_numallocatededgebasespans < vid.width * 8) {
+      r_numallocatededgebasespans = vid.width * 8;
+    }
+
+    if (r_numallocatededgebasespans > vid.width * 64) {
+      r_numallocatededgebasespans = vid.width * 64;
+    }
+
+    edge_basespans = malloc(r_numallocatededgebasespans * sizeof(espan_t));
+    if (!edge_basespans) {
+      Com_Error(ERR_FATAL, "%s: Couldn't malloc %zu bytes", __func__,
+                r_numallocatededgebasespans * sizeof(espan_t));
+      return;
+    }
+
+    max_span_p = &edge_basespans[r_numallocatededgebasespans];
+
+    R_Printf(PRINT_DEVELOPER, "Allocated %d edge spans.\n", r_numallocatededgebasespans);
+  }
+
+  r_outofedgebasespans = false;
 }
 
 /*
@@ -820,9 +966,6 @@ void R_DrawBEntitiesOnList(void)
   insubmodel = false;
 }
 
-edge_t *ledges;
-surf_t *lsurfs;
-
 /*
 ================
 R_EdgeDrawing
@@ -832,20 +975,6 @@ void R_EdgeDrawing(void)
 {
   if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
     return;
-
-  if (auxedges) {
-    r_edges = auxedges;
-  } else {
-    r_edges = ledges;
-  }
-
-  if (r_surfsonstack) {
-    surfaces = lsurfs;
-    surf_max = &surfaces[r_cnumsurfs];
-    // surface 0 doesn't really exist; it's just a dummy because index 0
-    // is used to indicate no edge attached to surface
-    surfaces--;
-  }
 
   R_BeginEdgeFrame();
 
@@ -1011,11 +1140,7 @@ void RE_RenderFrame(refdef_t *fd)
   if (r_dspeeds->value)
     R_PrintDSpeeds();
 
-  if (sw_reportsurfout->value && r_outofsurfaces)
-    R_Printf(PRINT_ALL, "Short %d surfaces\n", r_outofsurfaces);
-
-  if (sw_reportedgeout->value && r_outofedges)
-    R_Printf(PRINT_ALL, "Short roughly %d edges\n", r_outofedges * 2 / 3);
+  R_ReallocateMapBuffers();
 }
 
 static int requested_width = -1;
@@ -1357,6 +1482,8 @@ static void SWimp_FreeBuffers(void)
     free(triangle_spans);
   }
   triangle_spans = NULL;
+  triangles_max = NULL;
+  r_numallocatedtriangles = 0;
 
   if (warp_rowptr) {
     free(warp_rowptr);
@@ -1372,21 +1499,39 @@ static void SWimp_FreeBuffers(void)
     free(edge_basespans);
   }
   edge_basespans = NULL;
+  max_span_p = NULL;
+  r_numallocatededgebasespans = 0;
 
   if (finalverts) {
     free(finalverts);
   }
   finalverts = NULL;
+  finalverts_max = NULL;
+  r_numallocatedverts = 0;
 
-  if (ledges) {
-    free(ledges);
+  if (r_edges) {
+    free(r_edges);
   }
-  ledges = NULL;
+  r_edges = NULL;
+  edge_p = NULL;
+  edge_max = NULL;
+  r_numallocatededges = 0;
 
-  if (lsurfs) {
-    free(lsurfs);
+  if (surfaces_base) {
+    free(surfaces_base);
   }
-  lsurfs = NULL;
+  surfaces_base = NULL;
+  surfaces = NULL;
+  surface_p = NULL;
+  surf_max = NULL;
+  r_cnumsurfs = 0;
+
+  if (blocklights) {
+    free(blocklights);
+  }
+  blocklights = NULL;
+  blocklight_max = NULL;
+  r_numallocatedlights = 0;
 
   if (r_warpbuffer) {
     free(r_warpbuffer);
@@ -1417,17 +1562,12 @@ static void SWimp_AllocBuffers(void)
   newedges = malloc(vid.width * sizeof(edge_t *));
   removeedges = malloc(vid.width * sizeof(edge_t *));
 
-  // 1 extra for spanpackage that marks end
-  triangle_spans = malloc((vid.width + 1) * sizeof(spanpackage_t));
-
   warp_rowptr = malloc((vid.width + AMP2 * 2) * sizeof(byte *));
   warp_column = malloc((vid.width + AMP2 * 2) * sizeof(int));
 
-  edge_basespans = malloc((vid.width * 2) * sizeof(espan_t));
-  finalverts = malloc((MAXALIASVERTS + 3) * sizeof(finalvert_t));
-  ledges = malloc((NUMSTACKEDGES + 1) * sizeof(edge_t));
-  lsurfs = malloc((NUMSTACKSURFACES + 1) * sizeof(surf_t));
   r_warpbuffer = malloc(WARP_WIDTH * WARP_HEIGHT * sizeof(pixel_t));
+
+  R_ReallocateMapBuffers();
 
   if ((vid.width >= 2048) && (sizeof(shift20_t) == 4)) {
     shift_size = 18;

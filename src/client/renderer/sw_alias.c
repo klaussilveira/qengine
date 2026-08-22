@@ -223,7 +223,7 @@ typedef struct
 } aliasbatchedtransformdata_t;
 
 aliasbatchedtransformdata_t aliasbatchedtransformdata;
-finalvert_t *finalverts;
+finalvert_t *finalverts, *finalverts_max;
 
 void R_AliasPreparePoints(void)
 {
@@ -241,6 +241,11 @@ void R_AliasPreparePoints(void)
 
   // put work vertexes on stack, cache aligned
   pfinalverts = finalverts;
+
+  if ((pfinalverts + s_pmdl->num_xyz) >= finalverts_max) {
+    r_outofverts = true;
+    return;
+  }
 
   aliasbatchedtransformdata.num_points = s_pmdl->num_xyz;
   aliasbatchedtransformdata.last_verts = r_lastframe->verts;

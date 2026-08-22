@@ -178,11 +178,6 @@ void Draw_FadeScreen(void)
   RE_Draw_FadeScreen();
 }
 
-void Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
-{
-  RE_Draw_StretchRaw(x, y, w, h, cols, rows, data);
-}
-
 void R_SetPalette(const unsigned char *palette)
 {
   RE_SetPalette(palette);

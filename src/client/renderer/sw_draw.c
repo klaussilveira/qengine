@@ -194,21 +194,6 @@ void RE_Draw_StretchPic(int x, int y, int w, int h, char *name)
 
 /*
 =============
-RE_Draw_StretchRaw
-=============
-*/
-void RE_Draw_StretchRaw(int x, int y, int w, int h, int cols, int rows, byte *data)
-{
-  image_t pic;
-
-  pic.pixels[0] = data;
-  pic.width = cols;
-  pic.height = rows;
-  RE_Draw_StretchPicImplementation(x, y, w, h, &pic);
-}
-
-/*
-=============
 Draw_Pic
 =============
 */

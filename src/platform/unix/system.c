@@ -25,13 +25,12 @@
  */
 
 #include <unistd.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/select.h>
-#include <sys/stat.h>
 #include <string.h>
 #include <dirent.h>
 #include <time.h>
@@ -214,27 +213,6 @@ void Sys_ConsoleOutput(char *string)
   fputs(string, stdout);
 }
 
-void Sys_Printf(char *fmt, ...)
-{
-  va_list argptr;
-  char text[1024];
-  unsigned char *p;
-
-  va_start(argptr, fmt);
-  vsnprintf(text, 1024, fmt, argptr);
-  va_end(argptr);
-
-  for (p = (unsigned char *) text; *p; p++) {
-    *p &= 0x7f;
-
-    if (((*p > 128) || (*p < 32)) && (*p != 10) && (*p != 13) && (*p != 9)) {
-      printf("[%02x]", *p);
-    } else {
-      putc(*p, stdout);
-    }
-  }
-}
-
 void Sys_Quit(void)
 {
 #ifndef DEDICATED_ONLY
@@ -271,25 +249,6 @@ void Sys_Error(char *error, ...)
   fprintf(stderr, "Error: %s\n", string);
 
   exit(1);
-}
-
-/*
- * returns -1 if not present
- */
-int Sys_FileTime(char *path)
-{
-  struct stat buf;
-
-  if (stat(path, &buf) == -1) {
-    return -1;
-  }
-
-  return buf.st_mtime;
-}
-
-void floating_point_exception_handler(int whatever)
-{
-  signal(SIGFPE, floating_point_exception_handler);
 }
 
 char *Sys_ConsoleInput(void)

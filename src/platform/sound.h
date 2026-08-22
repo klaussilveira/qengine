@@ -13,7 +13,6 @@ int sound_set_playback_offset(float);
 void sound_clear_buffer(void);
 qboolean sound_cache(sfx_t *sfx, wavinfo_t *info, byte *data);
 void sound_update(void);
-void sound_raw_samples(int samples, int rate, int width, int channels, byte *data, float volume);
 void sound_spatialize(channel_t *ch);
 
 #endif // PLATFORM_SOUND_H

@@ -65,7 +65,7 @@ int d_aspancount, d_countextrastep;
 static spanpackage_t *a_spans;
 static spanpackage_t *d_pedgespanpackage;
 
-spanpackage_t *triangle_spans;
+spanpackage_t *triangle_spans, *triangles_max;
 
 static int ystart;
 pixel_t *d_pdest, *d_ptex;
@@ -766,7 +766,7 @@ R_RasterizeAliasPolySmooth
 */
 void R_RasterizeAliasPolySmooth(void)
 {
-  int initialleftheight, initialrightheight;
+  int initialleftheight, initialrightheight, leftheight;
   int *plefttop, *prighttop, *pleftbottom, *prightbottom;
   int working_lstepx, originalcount;
 
@@ -778,6 +778,17 @@ void R_RasterizeAliasPolySmooth(void)
 
   initialleftheight = pleftbottom[1] - plefttop[1];
   initialrightheight = prightbottom[1] - prighttop[1];
+
+  if (pedgetable->numleftedges == 2) {
+    leftheight = pedgetable->pleftedgevert2[1] - plefttop[1];
+  } else {
+    leftheight = initialleftheight;
+  }
+
+  if (&triangle_spans[leftheight + 1] >= triangles_max) {
+    r_outoftriangles = true;
+    return;
+  }
 
   //
   // set the s, t, and light gradients, which are consistent across the triangle

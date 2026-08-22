@@ -53,8 +53,6 @@ static blockdrawer_t surfmiptable[4] = {R_DrawSurfaceBlock8_mip0, R_DrawSurfaceB
 
 void R_BuildLightMap(void);
 
-extern unsigned blocklights[1024]; // allow some very large lightmaps
-
 static const int light_kernel_u[4] = {2, 14, 6, 10};
 static const int light_kernel_v[4] = {14, 6, 10, 2};
 
@@ -622,32 +620,6 @@ surfcache_t *D_SCAlloc(int width, int size)
 }
 
 //=============================================================================
-
-// if the num is not a power of 2, assume it will not repeat
-
-int MaskForNum(int num)
-{
-  if (num == 128)
-    return 127;
-  if (num == 64)
-    return 63;
-  if (num == 32)
-    return 31;
-  if (num == 16)
-    return 15;
-  return 255;
-}
-
-int D_log2(int num)
-{
-  int c;
-
-  c = 0;
-
-  while (num >>= 1)
-    c++;
-  return c;
-}
 
 //=============================================================================
 

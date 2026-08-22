@@ -251,7 +251,7 @@ void R_LightPoint(vec3_t p, vec3_t color)
 
 //===================================================================
 
-unsigned blocklights[1024]; // allow some very large lightmaps
+unsigned *blocklights = NULL, *blocklight_max = NULL;
 
 /*
 ===============
@@ -276,6 +276,11 @@ void R_AddDynamicLights(void)
   smax = (surf->extents[0] >> 4) + 1;
   tmax = (surf->extents[1] >> 4) + 1;
   tex = surf->texinfo;
+
+  if (blocklight_max <= blocklights + smax * tmax) {
+    r_outoflights = true;
+    return;
+  }
 
   for (lnum = 0; lnum < r_newrefdef.num_dlights; lnum++) {
     if (!(surf->dlightbits & (1 << lnum)))
@@ -361,6 +366,11 @@ void R_BuildLightMap(void)
   smax = (surf->extents[0] >> 4) + 1;
   tmax = (surf->extents[1] >> 4) + 1;
   size = smax * tmax;
+
+  if (blocklight_max <= blocklights + size) {
+    r_outoflights = true;
+    return;
+  }
 
   if (r_fullbright->value || !r_worldmodel->lightdata) {
     for (i = 0; i < size; i++)
