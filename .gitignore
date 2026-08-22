@@ -1,6 +1,7 @@
 /build/
 /cmake-build-debug/
 /.idea/
+__pycache__
 /assets/*
 !/assets/autoexec.cfg
 !/assets/config.cfg
