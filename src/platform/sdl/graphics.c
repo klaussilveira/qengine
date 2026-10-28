@@ -135,9 +135,27 @@ qboolean gfx_create_window(int fullscreen, qboolean vsync, int win_width, int wi
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   }
 
+  /* Fall back to software renderer (required for dummy video driver headless). */
+  if (renderer == NULL) {
+    Com_Printf("Accelerated renderer unavailable (%s), trying software.\n", SDL_GetError());
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+  }
+
+  if (renderer == NULL) {
+    renderer = SDL_CreateRenderer(window, -1, 0);
+  }
+
   if (renderer == NULL) {
     Com_Printf("Failed to create renderer: %s\n", SDL_GetError());
     return false;
+  }
+
+  {
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(renderer, &info) == 0) {
+      Com_Printf("SDL renderer: %s (accelerated: %s).\n", info.name,
+                 (info.flags & SDL_RENDERER_ACCELERATED) ? "yes" : "no");
+    }
   }
 
   // Clear to black until it loads
@@ -199,8 +217,12 @@ void gfx_window_grab_input(qboolean grab)
   }
 
   if (SDL_SetRelativeMouseMode(grab ? SDL_TRUE : SDL_FALSE) < 0) {
-    Com_Printf("WARNING: Setting Relative Mousemode failed, reason: %s\n", SDL_GetError());
-    Com_Printf("         You should probably update to SDL 2.0.3 or newer!\n");
+    /* Dummy video driver has no relative mouse mode; skip noisy warning headless. */
+    const char *driver = SDL_GetCurrentVideoDriver();
+    if (driver == NULL || strcmp(driver, "dummy") != 0) {
+      Com_Printf("WARNING: Setting Relative Mousemode failed, reason: %s\n", SDL_GetError());
+      Com_Printf("         You should probably update to SDL 2.0.3 or newer!\n");
+    }
     SDL_SetWindowGrab(window, SDL_FALSE);
     mouse_grabbed = false;
 
