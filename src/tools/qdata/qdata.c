@@ -233,7 +233,11 @@ void PackDirectory_r(char *dir)
 #else
 
 #include <sys/types.h>
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#include <sys/dirent.h>
+#else
 #include <sys/dir.h>
+#endif
 
 void PackDirectory_r(char *dir)
 {

@@ -35,7 +35,8 @@
 #include "../../common/header/common.h"
 
 #if defined(__FreeBSD__) || defined(__OpenBSD__)
-#include <machine/param.h>
+#include <sys/param.h>
+#include <sys/types.h>
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
